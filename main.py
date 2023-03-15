@@ -4,8 +4,8 @@ from scipy import stats
 import matplotlib.pyplot as plt
 
 
-def read_convert(path, name, key_word, key_pos, key_len):
-    # can read point
+def read_log(path, name, key_word, key_pos, key_len):
+    # can read "point" for the unity log
     data = 0
     with open(os.path.join(path, name), 'r') as s_txt:
         for lines in s_txt:
@@ -23,19 +23,19 @@ def walk_dir(path):
     file_list = []
     temp = os.walk(path)
     for path, dirs, files in temp:
-        file_list = files
+        if dirs:
+            file_list = files
 
     return file_list
 
 
-if __name__ == "__main__":
-    m_path = r"C:\Users\SN-F-\Developer\exp_data"
-    m_file = walk_dir(m_path)
+def read_convert(path):
+    file = walk_dir(path)
     point = [[], [], []]
     number = []
-    for m_name in m_file:
-        name_s = m_name.split("_")
-        if name_s[0] == "00" or name_s[0] == "sum.csv":
+    for name in file:
+        name_s = name.split("_")
+        if name_s[0] == "00":
             continue
         exp_index = int(name_s[1].replace(".txt", ""))  # judge index
         index = int(name_s[0])
@@ -44,21 +44,29 @@ if __name__ == "__main__":
         elif len(number) == 0:
             number.append(index)
 
-        point[exp_index].append(read_convert(m_path, m_name, "Point", 1, 3))
+        point[exp_index].append(read_log(path, name, "Point", 1, 3))
 
-    for a_point in point:
-        print(stats.shapiro(a_point))
 
-    print(stats.f_oneway(point[0], point[1], point[2]))
+if __name__ == "__main__":
+    m_path = r"C:\Users\SN-F-\Developer\exp_data"
+    m_name = r"csv\sum.csv"
+    m_data = pd.read_csv(os.path.join(m_path, m_name))
+    # print(m_data.describe())
 
-    plt.figure(figsize= (5,3), dpi=120, facecolor="white", edgecolor="red")
-    plt.boxplot(point, labels=["Pass", "Map", "Robot"])
-    plt.show()
+    # print(stats.shapiro(m_data.loc[:, "point_0"]))
+    # print(stats.shapiro(m_data.loc[:, "point_1"]))
+    # print(stats.shapiro(m_data.loc[:, "point_2"]))
+    # print(stats.f_oneway(m_data.loc[:, "point_0"], m_data.loc[:, "point_1"], m_data.loc[:, "point_2"]))
+    # print(stats.bartlett(point[0], point[1], point[2]))
+
+    # plt.figure(figsize= (5,3), dpi=120, facecolor="white", edgecolor="red")
+    # plt.boxplot(point, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
+    # plt.show()
 
 
 
     # csv_frame = pd.DataFrame({"number": number, "point_0": point[0], "point_1": point[1], "point_2": point[2]})
-    # csv_frame.to_csv(os.path.join(m_path, "sum.csv"), index=False)
+    # csv_frame.to_csv(os.path.join(m_path, "csv\sum.csv"), index=False)
 
 
 
