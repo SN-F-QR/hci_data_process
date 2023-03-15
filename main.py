@@ -1,6 +1,9 @@
 import os
+
+import numpy
 import pandas as pd
 from scipy import stats
+import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -47,26 +50,59 @@ def read_convert(path):
         point[exp_index].append(read_log(path, name, "Point", 1, 3))
 
 
+def one_way_anova(data_group):
+    # Shapiro–Wilk test
+    print("Wilk: The null hypothesis cannot be rejected when p>0.05:")
+    for tdata in data_group:
+        print(stats.shapiro(tdata))
+    print("ANOVA: The null hypothesis is no difference, and cannot be rejected when p>0.01/5")
+    print(
+        "F{free1},{free2} and p is:".format(free1=len(data_group) - 1, free2=len(data_group[0]) * len(data_group) + 1))
+    print(stats.f_oneway(data_group[0], data_group[1], data_group[2]))
+
+
+def fried_man_test(data_group):
+    print("Friedman: The null hypothesis cannot be rejected when p>0.05:")
+    print(stats.friedmanchisquare(data_group[0], data_group[1], data_group[2]))
+
+
+
+def combine_qcsv(path):
+    name = [r"csv\Survey for passthrough.csv", r"csv\Survey for mapping feature feeling.csv",
+            r"csv\Survey for robot grasping feature feeling.csv"]
+
+    data = []
+    i = 1
+    for k in name:
+        df = pd.read_csv(os.path.join(path, k))
+        group = [i] * df.shape[0]
+        df = df.merge(pd.DataFrame({"group": group}), left_index=True, right_index=True)  # add group label
+        i += 1
+        df = df.rename(columns={'This feature is effective to finish the real-world task.': "effective",
+                                'To what extent did this feature decrease the immersion on game?': "decrease",
+                                'You could immerse yourself again quickly.': "again",
+                                'You like this feature.': "like"})
+        df = df.reindex(["group", "effective", "decrease", "again", "like"], axis="columns")
+        data.append(df)
+    return pd.concat(data, ignore_index=True)
+
+
 if __name__ == "__main__":
     m_path = r"C:\Users\SN-F-\Developer\exp_data"
-    m_name = r"csv\sum.csv"
-    m_data = pd.read_csv(os.path.join(m_path, m_name))
-    # print(m_data.describe())
+    m_name = r"csv\common_ques.csv"
+    data = pd.read_csv(os.path.join(m_path, m_name))
+    # save = combine_qcsv(m_path)
+    judge = data.loc[:, "group"]
+    tested = "decrease"
+    m_group = [data.loc[judge == 1, tested], data.loc[judge == 2, tested], data.loc[judge == 3, tested]]
+    # one_way_anova()
+    fried_man_test(m_group)
 
-    # print(stats.shapiro(m_data.loc[:, "point_0"]))
-    # print(stats.shapiro(m_data.loc[:, "point_1"]))
-    # print(stats.shapiro(m_data.loc[:, "point_2"]))
-    # print(stats.f_oneway(m_data.loc[:, "point_0"], m_data.loc[:, "point_1"], m_data.loc[:, "point_2"]))
     # print(stats.bartlett(point[0], point[1], point[2]))
 
-    # plt.figure(figsize= (5,3), dpi=120, facecolor="white", edgecolor="red")
-    # plt.boxplot(point, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
-    # plt.show()
-
-
+    plt.figure(figsize=(5, 3), dpi=120, facecolor="white", edgecolor="red")
+    plt.boxplot(m_group, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
+    plt.show()
 
     # csv_frame = pd.DataFrame({"number": number, "point_0": point[0], "point_1": point[1], "point_2": point[2]})
     # csv_frame.to_csv(os.path.join(m_path, "csv\sum.csv"), index=False)
-
-
-
