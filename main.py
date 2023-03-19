@@ -26,8 +26,8 @@ def walk_dir(path):
     file_list = []
     temp = os.walk(path)
     for path, dirs, files in temp:
-        if dirs:
-            file_list = files
+        # if dirs:
+        file_list = files
 
     return file_list
 
@@ -62,8 +62,18 @@ def one_way_anova(data_group):
 
 
 def fried_man_test(data_group):
+    # TODO: add test mode support, find suitable post-hoc test
     print("Friedman: The null hypothesis cannot be rejected when p>0.05:")
-    print(stats.friedmanchisquare(data_group[0], data_group[1], data_group[2]))
+    # p = stats.friedmanchisquare(data_group[0], data_group[1], data_group[2])
+    # p = stats.kruskal(data_group[0], data_group[1], data_group[2])
+    p = stats.median_test(data_group[0], data_group[1], data_group[2], nan_policy='omit')
+    print(p)
+    if p[1] < 0.05:
+        print("Found significant difference, run wilcoxon post-hoc test")
+        print("Wilcoxon: Reject the null hypothesis that there is no difference when p<0.05")
+        print(stats.wilcoxon(data_group[0], data_group[1], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
+        print(stats.wilcoxon(data_group[0], data_group[2], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
+        print(stats.wilcoxon(data_group[1], data_group[2], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
 
 
 
@@ -87,22 +97,167 @@ def combine_qcsv(path):
     return pd.concat(data, ignore_index=True)
 
 
+def read_nasa_raw(path, file_name, raw_type):
+    add_one = True
+    assert raw_type == 'pw' or raw_type == 'rs'
+    # dict for dataframe
+    data_dict = {"sub_id": [],
+                 "group": [],
+                 "mental": [],
+                 "physical": [],
+                 "temporal": [],
+                 "performance": [],
+                 "effort": [],
+                 "frustration": []}
+
+    for name in file_name:
+        n_path = os.path.join(path, name)
+        with open(n_path, 'r') as csv_txt:
+            data_flag = False
+            weight = [0 for i in range(6)]  # weight for each file
+            for line in csv_txt:
+                words = line.split(",")
+                if words[0] == "SUBJECT ID:":
+                    if add_one and int(words[1]) == 1 and raw_type == 'pw':
+                        data_dict = add_data(data_dict)
+                        add_one = False
+                    data_dict["sub_id"].append(int(words[1]))
+                    continue
+                if words[0] == "TRIAL:":
+                    data_dict["group"].append(int(words[1]))
+                    continue
+                if words[0] == "PAIRWISE CHOICES" or words[0] == "RATING SCALE:":
+                    data_flag = True
+                    continue
+                if data_flag and len(words) > 1:
+                    if raw_type == 'pw':
+                        index = count_weight(words[-1].replace("\n", ""))
+                        weight[index] += 1
+                    elif raw_type == 'rs':
+                        index = count_weight(words[0])
+                        weight[index] = int(words[-1])
+
+            data_dict["mental"].append(weight[0])
+            data_dict["physical"].append(weight[1])
+            data_dict["temporal"].append(weight[2])
+            data_dict["performance"].append(weight[3])
+            data_dict["effort"].append(weight[4])
+            data_dict["frustration"].append(weight[5])
+
+    raw_frame = pd.DataFrame(data_dict)
+    return raw_frame
+
+def add_data(tar):
+    data = [3,2,0,4,5,1]
+    tar["sub_id"].append(1)
+    tar["group"].append(0)
+
+    tar["mental"].append(data[0])
+    tar["physical"].append(data[1])
+    tar["temporal"].append(data[2])
+    tar["performance"].append(data[3])
+    tar["effort"].append(data[4])
+    tar["frustration"].append(data[5])
+
+    return tar
+
+
+def count_weight(tag):
+    if tag == "Mental Demand":
+        return 0
+    elif tag == "Physical Demand":
+        return 1
+    elif tag == "Temporal Demand":
+        return 2
+    elif tag == "Performance":
+        return 3
+    elif tag == "Effort":
+        return 4
+    elif tag == "Frustration":
+        return 5
+
+
+def analyze_nasa(data_frame, group_count, start, plot=True):
+    group_judge = data_frame.loc[:, "group"]  # get group number
+    plt_count = 0
+    if plot:
+        fig, axes = plt.subplots(2, 3, layout='constrained')
+
+    for i in range(start,data_frame.shape[1]):
+        group_data = []
+        for j in range(group_count):
+            # TODO: Mind here, deal with nan or not
+            group_data.append(delete_outlier(data_frame.iloc[(group_judge == j).values, i]))
+            # group_data.append(data_frame.iloc[(group_judge == j).values, i])
+
+        if plot:
+            axes.flat[plt_count].boxplot(group_data, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
+            axes.flat[plt_count].set_title(data_frame.columns[i])
+            plt_count += 1
+        print(data_frame.columns[i] + " result:")
+        fried_man_test(group_data)
+
+    if plot:
+        plt.show()
+
+
+def delete_outlier(s):
+    q1, q3 = s.quantile(.25), s.quantile(.75)
+    iqr = q3 - q1
+    low, up = q1 - 1.5*iqr, q3 + 1.5*iqr
+    outlier = s.mask((s < low) | (s > up))
+    return outlier
+
+
+def read_nasa(path, first_time):
+    # TODO: Add first_time support
+    # *be careful the file order*
+    # get file lists
+    file = walk_dir(path)
+    pw_file = []
+    rs_file = []
+    for name in file:
+        names = name.split("_")
+        if names[4] == "PW":
+            pw_file.append(name)
+        elif names[4] == "RS":
+            rs_file.append(name)
+
+    # read pair result and get weight
+    pw_frame = read_nasa_raw(path, pw_file, 'pw')
+    # read scale result
+    rs_frame = read_nasa_raw(path, rs_file, 'rs')
+    # get raw result
+    print("---NASA TLX raw result---")
+    analyze_nasa(rs_frame, 3, 2, plot=True)
+    # get weighted result
+    print("---NASA TLX weighted result---")
+    weighted_frame = rs_frame
+    weighted_frame.loc[:, "mental":] = rs_frame.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
+    # weighted_frame.loc[:, "sum"] = weighted_frame.iloc[:, 2]
+    # for i in range(3,8):
+        # weighted_frame.loc[:, "sum"] += weighted_frame.iloc[:, i]
+    analyze_nasa(weighted_frame, 3, 2, plot=True)
+    # return 6*2 results
+
 if __name__ == "__main__":
-    m_path = r"C:\Users\SN-F-\Developer\exp_data"
-    m_name = r"csv\common_ques.csv"
-    data = pd.read_csv(os.path.join(m_path, m_name))
+    m_path = r"C:\Users\SN-F-\Developer\exp_data\Exp_NASA"
+    read_nasa(m_path, True)
+
+    # m_name = r"csv\common_ques.csv"
+    # data = pd.read_csv(os.path.join(m_path, m_name))
     # save = combine_qcsv(m_path)
-    judge = data.loc[:, "group"]
-    tested = "decrease"
-    m_group = [data.loc[judge == 1, tested], data.loc[judge == 2, tested], data.loc[judge == 3, tested]]
+    # judge = data.loc[:, "group"]
+    # tested = "like"
+    # m_group = [data.loc[judge == 1, tested], data.loc[judge == 2, tested], data.loc[judge == 3, tested]]
     # one_way_anova()
-    fried_man_test(m_group)
+    # fried_man_test(m_group)
 
     # print(stats.bartlett(point[0], point[1], point[2]))
 
-    plt.figure(figsize=(5, 3), dpi=120, facecolor="white", edgecolor="red")
-    plt.boxplot(m_group, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
-    plt.show()
+    # plt.figure(figsize=(5, 3), dpi=120, facecolor="white", edgecolor="red")
+    # plt.boxplot(m_group, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
+    # plt.show()
 
     # csv_frame = pd.DataFrame({"number": number, "point_0": point[0], "point_1": point[1], "point_2": point[2]})
     # csv_frame.to_csv(os.path.join(m_path, "csv\sum.csv"), index=False)
