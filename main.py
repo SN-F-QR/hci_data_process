@@ -1,24 +1,110 @@
 import os
-
-import numpy
 import pandas as pd
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
+import scikit_posthocs as sp
+
+
+def time_f(x):
+    # convert string time to float second
+    return float(x.split(":")[0])*60 + float(x.split(":")[1])
 
 
 def read_log(path, name, key_word, key_pos, key_len):
     # can read "point" for the unity log
+    real_flag = False
     data = 0
-    with open(os.path.join(path, name), 'r') as s_txt:
+    open_t = []
+    close_t = []
+    file_path = os.path.join(path, name)
+    with open(file_path, 'r') as s_txt:
         for lines in s_txt:
             words = lines.split("_")
+            # avoid fake switch
+            if key_word.split(" ")[-1] == "Set":
+                if len(words) == key_len and words[key_pos] == "Ask for Action":
+                    real_flag = True
+
             if len(words) == key_len and words[key_pos] == key_word:
-                temp = int(words[key_pos + 1])
-                if data < temp:
-                    data = temp
+                if key_word == "Point":
+                    data = int(words[key_pos + 1])
+                elif key_word == "Shot":
+                    data += 1
+                elif key_word.split(" ")[-1] == "Set" and real_flag:
+                    # open feature
+                    if words[key_pos + 1].replace("\n", "") == "True":
+                        open_t.append(time_f(words[0]))
+                    elif len(open_t) > len(close_t):
+                        close_t.append(time_f(words[0]))
+                        real_flag = False
+
+    if key_word.split(" ")[-1] == "Set":
+        data = find_around_action(file_path, open_t, close_t, bias=5)
 
     return data
+
+
+def find_around_action(path, open_t, close_t, bias):
+    # find out the data before and after some actions
+    assert len(open_t) == len(close_t) == 3
+    for i in range(1,len(open_t)):
+        assert open_t[i]-bias > close_t[i-1]+bias
+    shot_before = []
+    hit_before = []
+    shot_after = []
+    hit_after = []
+    sb,sa,hb,ha = 0,0,0,0  # can be reduced to s,h
+
+    i = 0
+    # find the data before and after action
+    with open(path, 'r') as s_txt:
+        for lines in s_txt:
+            words = lines.split("_")
+            if len(words) <= 1:  # no time log in this line
+                continue
+            cur_time = time_f(words[0])
+            if open_t[i]-bias <= cur_time <= open_t[i]:
+                if words[1] == "Shot":
+                    sb += 1
+                elif words[1] == "Hit":
+                    hb += 1
+            elif cur_time > open_t[i] and len(shot_before)!=i+1:
+                shot_before.append(sb)
+                hit_before.append(hb)
+                sb = 0
+                hb = 0
+            if close_t[i] <= cur_time <= close_t[i] + bias:
+                if words[1] == "Shot":
+                    sa += 1
+                elif words[1] == "Hit":
+                    ha += 1
+            elif cur_time > close_t[i] + bias and len(shot_after)!=i+1:
+                shot_after.append(sa)
+                hit_after.append(ha)
+                sa = 0
+                ha = 0
+                i += 1
+                if i == 3:
+                    break
+
+    assert len(shot_before) == len(shot_after) == 3
+    accuracy = [0.0, 0.0]
+    med_b = []
+    med_a = []
+    for i in range(len(shot_before)):
+        if shot_before[i] == 0 or shot_after[i] == 0:
+            continue
+        med_b.append(hit_before[i] / shot_before[i])
+        med_a.append(hit_after[i] / shot_after[i])
+    accuracy[0] = np.median(med_b)
+    accuracy[1] = np.median(med_a)
+    # accuracy[0] = sum(hit_before) / sum(shot_before)
+    # accuracy[1] = sum(hit_after) / sum(shot_after)
+    # accuracy[0] = hit_before[1] / shot_before[1]
+    # accuracy[1] = hit_after[1] / shot_after[1]
+
+    return accuracy[1]-accuracy[0]
 
 
 def walk_dir(path):
@@ -26,28 +112,39 @@ def walk_dir(path):
     file_list = []
     temp = os.walk(path)
     for path, dirs, files in temp:
-        # if dirs:
         file_list = files
 
     return file_list
 
 
 def read_convert(path):
-    file = walk_dir(path)
-    point = [[], [], []]
-    number = []
-    for name in file:
+    # read all experiment files, convert to csv
+    files = walk_dir(path)
+    group_action = ["Camera Set", "Reflection Set", "Robot Menu Set"]
+    data_dict = {"sub_id": [],
+                 "group": [],
+                 "point": [],
+                 "accuracy": [],
+                 "acc_difference": []}
+    for name in files:
         name_s = name.split("_")
         if name_s[0] == "00":
             continue
-        exp_index = int(name_s[1].replace(".txt", ""))  # judge index
-        index = int(name_s[0])
-        if len(number) > 0 and number[-1] != index:  # save people number
-            number.append(index)
-        elif len(number) == 0:
-            number.append(index)
+        sub_id = int(name_s[0])
+        group = int(name_s[1].replace(".txt", ""))
+        data_dict["sub_id"].append(sub_id)
+        data_dict["group"].append(group)
 
-        point[exp_index].append(read_log(path, name, "Point", 1, 3))
+        point = read_log(path, name, "Point", 1, 3)
+        data_dict["point"].append(point)  # count point
+        data_dict["accuracy"].append(point/read_log(path, name, "Shot", 1, 5))  # count shot times
+        data_dict["acc_difference"].append(read_log(path, name, group_action[group], 1, 3))
+
+    # convert to dataframe
+    df = pd.DataFrame(data_dict)
+    # analyze data
+    analyze_nasa(df, 3, 2)
+    return df
 
 
 def one_way_anova(data_group):
@@ -64,9 +161,9 @@ def one_way_anova(data_group):
 def fried_man_test(data_group):
     # TODO: add test mode support, find suitable post-hoc test
     print("Friedman: The null hypothesis cannot be rejected when p>0.05:")
-    # p = stats.friedmanchisquare(data_group[0], data_group[1], data_group[2])
+    p = stats.friedmanchisquare(data_group[0], data_group[1], data_group[2])
     # p = stats.kruskal(data_group[0], data_group[1], data_group[2])
-    p = stats.median_test(data_group[0], data_group[1], data_group[2], nan_policy='omit')
+    # p = stats.median_test(data_group[0], data_group[1], data_group[2], nan_policy='omit')
     print(p)
     if p[1] < 0.05:
         print("Found significant difference, run wilcoxon post-hoc test")
@@ -74,7 +171,6 @@ def fried_man_test(data_group):
         print(stats.wilcoxon(data_group[0], data_group[1], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
         print(stats.wilcoxon(data_group[0], data_group[2], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
         print(stats.wilcoxon(data_group[1], data_group[2], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
-
 
 
 def combine_qcsv(path):
@@ -147,6 +243,7 @@ def read_nasa_raw(path, file_name, raw_type):
     raw_frame = pd.DataFrame(data_dict)
     return raw_frame
 
+
 def add_data(tar):
     data = [3,2,0,4,5,1]
     tar["sub_id"].append(1)
@@ -185,17 +282,19 @@ def analyze_nasa(data_frame, group_count, start, plot=True):
 
     for i in range(start,data_frame.shape[1]):
         group_data = []
+        group_data_plt = []
         for j in range(group_count):
             # TODO: Mind here, deal with nan or not
             group_data.append(delete_outlier(data_frame.iloc[(group_judge == j).values, i]))
-            # group_data.append(data_frame.iloc[(group_judge == j).values, i])
+            group_data_plt.append((data_frame.iloc[(group_judge == j).values, i]))
 
         if plot:
-            axes.flat[plt_count].boxplot(group_data, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
+            axes.flat[plt_count].boxplot(group_data_plt, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
             axes.flat[plt_count].set_title(data_frame.columns[i])
             plt_count += 1
-        print(data_frame.columns[i] + " result:")
-        fried_man_test(group_data)
+        print("------" + data_frame.columns[i] + " result:")
+        fried_man_test(group_data_plt)
+        # one_way_anova(group_data_plt)
 
     if plot:
         plt.show()
@@ -210,7 +309,7 @@ def delete_outlier(s):
 
 
 def read_nasa(path, first_time):
-    # TODO: Add first_time support
+    # TODO: Add first_time support, verify weighted result
     # *be careful the file order*
     # get file lists
     file = walk_dir(path)
@@ -240,24 +339,31 @@ def read_nasa(path, first_time):
     analyze_nasa(weighted_frame, 3, 2, plot=True)
     # return 6*2 results
 
-if __name__ == "__main__":
-    m_path = r"C:\Users\SN-F-\Developer\exp_data\Exp_NASA"
-    read_nasa(m_path, True)
 
-    # m_name = r"csv\common_ques.csv"
-    # data = pd.read_csv(os.path.join(m_path, m_name))
-    # save = combine_qcsv(m_path)
-    # judge = data.loc[:, "group"]
-    # tested = "like"
-    # m_group = [data.loc[judge == 1, tested], data.loc[judge == 2, tested], data.loc[judge == 3, tested]]
-    # one_way_anova()
-    # fried_man_test(m_group)
+def analyze_questionnaire(path):
+    name = r"csv\common_ques.csv"
+    data = pd.read_csv(os.path.join(path, name))
+    judge = data.loc[:, "group"]
+    tested = "decrease"
+    group = [data.loc[judge == 1, tested], data.loc[judge == 2, tested], data.loc[judge == 3, tested]]
+    fried_man_test(group)
 
     # print(stats.bartlett(point[0], point[1], point[2]))
 
-    # plt.figure(figsize=(5, 3), dpi=120, facecolor="white", edgecolor="red")
-    # plt.boxplot(m_group, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
-    # plt.show()
+    plt.figure(figsize=(5, 3), dpi=120, facecolor="white", edgecolor="red")
+    plt.boxplot(group, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
+    plt.show()
+
+if __name__ == "__main__":
+    m_path_NASA = r"C:\Users\SN-F-\Developer\exp_data\Exp_NASA"
+    m_path_exp = r"C:\Users\SN-F-\Developer\exp_data\Exp_game"
+    m_path = r"C:\Users\SN-F-\Developer\exp_data"
+    # read_nasa(m_path_NASA, True)
+    # read_convert(m_path_exp)
+    # print(1)
+    analyze_questionnaire(m_path)
+
+
 
     # csv_frame = pd.DataFrame({"number": number, "point_0": point[0], "point_1": point[1], "point_2": point[2]})
     # csv_frame.to_csv(os.path.join(m_path, "csv\sum.csv"), index=False)
