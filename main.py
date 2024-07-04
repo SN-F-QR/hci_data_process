@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from tool import Toolbox
 # import scikit_posthocs as sp
 
+
 class NasaTLXProcess:
     def __init__(self, path, group_names):
         self.rs_data = []
@@ -45,7 +46,7 @@ class NasaTLXProcess:
             # read pair result and get weight
             pw_frame = self.read_nasa_raw('pw')
             print("---NASA TLX weighted result---")
-            self.pw_data = self.rs_data
+            self.pw_data = self.rs_data[:]  # avoid ref
             self.pw_data.loc[:, "mental":] = self.rs_data.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
             self.analyze_nasa(self.pw_data, self.group_names, start=2, plot=True)
         # weighted_frame.loc[:, "sum"] = weighted_frame.iloc[:, 2]
@@ -104,8 +105,10 @@ class NasaTLXProcess:
         group_count = data_frame["group"].nunique()
         assert group_count == len(group_names)
         plt_count = 0
+        max_sig_count = 0
         if plot:
-            fig, axes = plt.subplots(2, 3, layout='constrained', sharey=True)
+            # fig, axes = plt.subplots(1, 6, layout="constrained", figsize=(12, 4)) # for two columns
+            fig, axes = plt.subplots(2, 3, layout="constrained")  # smaller space
 
         for i in range(start, data_frame.shape[1]):
             group_data = []
@@ -124,6 +127,7 @@ class NasaTLXProcess:
                     self.plots.append(bp)
                 else:
                     self.plots[plt_count] = bp
+
                 for patch, color in zip(bp["boxes"], bp_colors):
                     patch.set_facecolor(color)
                     patch.set_linewidth(0.5)
@@ -134,14 +138,37 @@ class NasaTLXProcess:
                     mean.set_markerfacecolor("#86C166")
                     mean.set_markeredgecolor("#86C166")
                 axes.flat[plt_count].set_title(data_frame.columns[i])
-                plt_count += 1
             print("------" + data_frame.columns[i] + " result:")
-            Toolbox.fried_man_test(group_data_plt)
+            # axes.flat[plt_count].set_ylim(-5, 100 + 3 * 15)
+            # axes.flat[plt_count].set_yticks(np.arange(0, 101, 20))
+
+            p_value = Toolbox.fried_man_test(group_data_plt)[1]
+            if p_value < 0.06:
+                sig_group = Toolbox.wilcoxon_post_hoc(group_data_plt)
+                max_sig_count = max(max_sig_count, len(sig_group))
+                height_add = 0
+                height_basic = axes.flat[plt_count].get_ylim()[1]
+                axes.flat[plt_count].set_ylim(-5, height_basic + len(sig_group) * 15)
+                axes.flat[plt_count].set_yticks(np.arange(0, 101, 20))
+                for res in sig_group:
+                    # Get x_axis positions for start and end
+                    x_s = axes.flat[plt_count].get_xticks()[res[0]]
+                    x_e = axes.flat[plt_count].get_xticks()[res[1]]
+                    NasaTLXProcess.add_significance(x_s, x_e, height_basic + height_add, res[2], axes.flat[plt_count])
+                    height_add += 15
+
+            plt_count += 1
             # one_way_anova(group_data_plt)
 
         if plot:
+            # Adjust height for all plot to maintain same y-axis
+            for ax in axes.flat:
+                ax.set_ylim(-5, 100 + max_sig_count * 15)
+                ax.set_yticks(np.arange(0, 101, 20))
+            # fig.tight_layout()
+            plt.savefig("NASA_TLX.pdf", dpi=300, bbox_inches='tight')
             plt.show()
-
+            plt.close()
 
     def count_weight(self, tag):
         if tag == "Mental Demand":
@@ -157,8 +184,21 @@ class NasaTLXProcess:
         elif tag == "Frustration":
             return 5
 
+    @staticmethod
+    def add_significance(start, end, height, p_value, ax):
+        x = [start, start, end, end]
+        y = [height, height + 3, height + 3, height]
+        ax.plot(x, y, color="k", linewidth=1.5)
 
+        sign = ""
+        if p_value < 0.001:
+            sign = "***"
+        elif p_value < 0.01:
+            sign = "**"
+        elif p_value <= 0.05:
+            sign = "*"
 
+        ax.text((start + end) / 2, height + 1, sign, ha="center", va="bottom")
 
 def time_f(x):
     # convert string time to float second
@@ -303,9 +343,6 @@ def one_way_anova(data_group):
     print(stats.f_oneway(data_group[0], data_group[1], data_group[2]))
 
 
-
-
-
 def combine_qcsv(path):
     name = [r"csv\Survey for passthrough.csv", r"csv\Survey for mapping feature feeling.csv",
             r"csv\Survey for robot grasping feature feeling.csv"]
@@ -328,38 +365,12 @@ def combine_qcsv(path):
 
 
 
-
-
-
-
-
-
-
-def add_significance(start, end, height, p_value, ax):
-    x = [start, start, end, end]
-    y = [height, height + 0.02, height + 0.02, height]
-    ax.plot(x, y, color="k", linewidth=1.5)
-
-    sign = ""
-    if p_value < 0.001:
-        sign = "***"
-    elif p_value < 0.01:
-        sign = "**"
-    elif p_value <= 0.05:
-        sign = "*"
-
-    ax.text((start+end) / 2, height + 0.03, sign, ha="center", va="bottom")
-
 def delete_outlier(s):
     q1, q3 = s.quantile(.25), s.quantile(.75)
     iqr = q3 - q1
     low, up = q1 - 1.5*iqr, q3 + 1.5*iqr
     outlier = s.mask((s < low) | (s > up))
     return outlier
-
-
-
-
 
 def analyze_questionnaire(path):
     name = r"csv\common_ques.csv"
