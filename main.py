@@ -161,7 +161,7 @@ def one_way_anova(data_group):
 def fried_man_test(data_group):
     # TODO: add test mode support, find suitable post-hoc test
     print("Friedman: The null hypothesis cannot be rejected when p>0.05:")
-    p = stats.friedmanchisquare(data_group[0], data_group[1], data_group[2])
+    p = stats.friedmanchisquare(*data_group)
     # p = stats.kruskal(data_group[0], data_group[1], data_group[2])
     # p = stats.median_test(data_group[0], data_group[1], data_group[2], nan_policy='omit')
     print(p)
@@ -255,13 +255,15 @@ def count_weight(tag):
         return 5
 
 
-def analyze_nasa(data_frame, group_count, start, plot=True):
+def analyze_nasa(data_frame, group_names, start, plot=True):
     group_judge = data_frame.loc[:, "group"]  # get group number
+    group_count = data_frame["group"].nunique()
+    assert group_count == len(group_names)
     plt_count = 0
     if plot:
         fig, axes = plt.subplots(2, 3, layout='constrained')
 
-    for i in range(start,data_frame.shape[1]):
+    for i in range(start, data_frame.shape[1]):
         group_data = []
         group_data_plt = []
         for j in range(group_count):
@@ -270,11 +272,11 @@ def analyze_nasa(data_frame, group_count, start, plot=True):
             group_data_plt.append((data_frame.iloc[(group_judge == j).values, i]))
 
         if plot:
-            axes.flat[plt_count].boxplot(group_data_plt, labels=["Pass", "Map", "Robot"], showfliers=True, showmeans=True)
+            axes.flat[plt_count].boxplot(group_data_plt, labels=group_names, showfliers=True, showmeans=True)
             axes.flat[plt_count].set_title(data_frame.columns[i])
             plt_count += 1
         print("------" + data_frame.columns[i] + " result:")
-        fried_man_test(group_data_plt)
+        # fried_man_test(group_data_plt)
         # one_way_anova(group_data_plt)
 
     if plot:
@@ -289,7 +291,7 @@ def delete_outlier(s):
     return outlier
 
 
-def read_nasa(path, first_time):
+def read_nasa(path, group_names):
     # TODO: Add first_time support, verify weighted result
     # only handle NASA_TLX with or without each-time pairwise
     # *be careful the file order*
@@ -312,7 +314,7 @@ def read_nasa(path, first_time):
     rs_frame = read_nasa_raw(path, rs_file, 'rs')
     # get raw result
     print("---NASA TLX raw result---")
-    analyze_nasa(rs_frame, 3, 2, plot=True)
+    analyze_nasa(rs_frame, group_names, 2, plot=True)
     # get weighted result
     if weighted:
         # read pair result and get weight
@@ -320,7 +322,7 @@ def read_nasa(path, first_time):
         print("---NASA TLX weighted result---")
         weighted_frame = rs_frame
         weighted_frame.loc[:, "mental":] = rs_frame.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
-        analyze_nasa(weighted_frame, 3, 2, plot=True)
+        analyze_nasa(weighted_frame, group_names, 2, plot=True)
     # weighted_frame.loc[:, "sum"] = weighted_frame.iloc[:, 2]
     # for i in range(3,8):
         # weighted_frame.loc[:, "sum"] += weighted_frame.iloc[:, i]
@@ -342,10 +344,10 @@ def analyze_questionnaire(path):
     plt.show()
 
 if __name__ == "__main__":
-    m_path_NASA = r"C:\Users\SN-F-\Developer\exp_data\Exp_NASA"
+    m_path_NASA = os.path.expanduser("~/Developer/Exp_Result/NASA_TLX")
     m_path_exp = r"C:\Users\SN-F-\Developer\exp_data\Exp_game"
     m_path = r"C:\Users\SN-F-\Developer\exp_data"
-    # read_nasa(m_path_NASA, True)
+    read_nasa(m_path_NASA, group_names=["NoRS", "Arr.", "Swap", "High."])
     # read_convert(m_path_exp)
     # print(1)
     # analyze_questionnaire(m_path)
