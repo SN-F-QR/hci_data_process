@@ -209,13 +209,13 @@ def read_nasa_raw(path, file_name, raw_type):
         n_path = os.path.join(path, name)
         with open(n_path, 'r') as csv_txt:
             data_flag = False
-            weight = [0 for i in range(6)]  # weight for each file
+            weight = [0 for i in range(6)]  # store weight for pw and score for raw
             for line in csv_txt:
                 words = line.split(",")
                 if words[0] == "SUBJECT ID:":
                     data_dict["sub_id"].append(int(words[1]))
                     continue
-                if words[0] == "TRIAL:":
+                if words[0] == "STUDY GROUP:":
                     data_dict["group"].append(int(words[1]))
                     continue
                 if words[0] == "PAIRWISE CHOICES" or words[0] == "RATING SCALE:":
@@ -291,6 +291,7 @@ def delete_outlier(s):
 
 def read_nasa(path, first_time):
     # TODO: Add first_time support, verify weighted result
+    # only handle NASA_TLX with or without each-time pairwise
     # *be careful the file order*
     # get file lists
     file = walk_dir(path)
@@ -303,21 +304,26 @@ def read_nasa(path, first_time):
         elif names[4] == "RS":
             rs_file.append(name)
 
-    # read pair result and get weight
-    pw_frame = read_nasa_raw(path, pw_file, 'pw')
+    weighted = len(pw_file) == len(rs_file)
+    if len(pw_file) > 0:
+        assert weighted
+
     # read scale result
     rs_frame = read_nasa_raw(path, rs_file, 'rs')
     # get raw result
     print("---NASA TLX raw result---")
     analyze_nasa(rs_frame, 3, 2, plot=True)
     # get weighted result
-    print("---NASA TLX weighted result---")
-    weighted_frame = rs_frame
-    weighted_frame.loc[:, "mental":] = rs_frame.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
+    if weighted:
+        # read pair result and get weight
+        pw_frame = read_nasa_raw(path, pw_file, 'pw')
+        print("---NASA TLX weighted result---")
+        weighted_frame = rs_frame
+        weighted_frame.loc[:, "mental":] = rs_frame.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
+        analyze_nasa(weighted_frame, 3, 2, plot=True)
     # weighted_frame.loc[:, "sum"] = weighted_frame.iloc[:, 2]
     # for i in range(3,8):
         # weighted_frame.loc[:, "sum"] += weighted_frame.iloc[:, i]
-    analyze_nasa(weighted_frame, 3, 2, plot=True)
     # return 6*2 results
 
 
