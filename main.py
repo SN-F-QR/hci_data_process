@@ -3,7 +3,7 @@ import pandas as pd
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
-import scikit_posthocs as sp
+# import scikit_posthocs as sp
 
 
 def time_f(x):
@@ -194,7 +194,6 @@ def combine_qcsv(path):
 
 
 def read_nasa_raw(path, file_name, raw_type):
-    add_one = True
     assert raw_type == 'pw' or raw_type == 'rs'
     # dict for dataframe
     data_dict = {"sub_id": [],
@@ -214,9 +213,6 @@ def read_nasa_raw(path, file_name, raw_type):
             for line in csv_txt:
                 words = line.split(",")
                 if words[0] == "SUBJECT ID:":
-                    if add_one and int(words[1]) == 1 and raw_type == 'pw':
-                        data_dict = add_data(data_dict)
-                        add_one = False
                     data_dict["sub_id"].append(int(words[1]))
                     continue
                 if words[0] == "TRIAL:":
@@ -242,21 +238,6 @@ def read_nasa_raw(path, file_name, raw_type):
 
     raw_frame = pd.DataFrame(data_dict)
     return raw_frame
-
-
-def add_data(tar):
-    data = [3,2,0,4,5,1]
-    tar["sub_id"].append(1)
-    tar["group"].append(0)
-
-    tar["mental"].append(data[0])
-    tar["physical"].append(data[1])
-    tar["temporal"].append(data[2])
-    tar["performance"].append(data[3])
-    tar["effort"].append(data[4])
-    tar["frustration"].append(data[5])
-
-    return tar
 
 
 def count_weight(tag):
@@ -361,7 +342,7 @@ if __name__ == "__main__":
     # read_nasa(m_path_NASA, True)
     # read_convert(m_path_exp)
     # print(1)
-    analyze_questionnaire(m_path)
+    # analyze_questionnaire(m_path)
 
 
 
