@@ -3,7 +3,161 @@ import pandas as pd
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
+from tool import Toolbox
 # import scikit_posthocs as sp
+
+class NasaTLXProcess:
+    def __init__(self, path, group_names):
+        self.rs_data = []
+        self.pw_data = []
+        self.path = path
+        self.group_names = group_names
+        self.file_names = []
+
+        # plot
+        self.plots = []
+
+    def read_nasa(self):
+        # only handle NASA_TLX with or without each-time pairwise
+        # *be careful the file order*
+        # get file lists
+        self.file_names = Toolbox.walk_dir(self.path)
+        pw_file = []
+        rs_file = []
+        for name in self.file_names:
+            names = name.split("_")
+            if names[4] == "PW":
+                pw_file.append(name)
+            elif names[4] == "RS":
+                rs_file.append(name)
+
+        weighted = len(pw_file) == len(rs_file)
+        if len(pw_file) > 0:
+            assert weighted
+
+        # read scale result
+        self.rs_data = self.read_nasa_raw('rs')
+        # get raw result
+        print("---NASA TLX raw result---")
+        self.analyze_nasa(self.rs_data, self.group_names, start=2, plot=True)
+        # get weighted result
+        if weighted:
+            # read pair result and get weight
+            pw_frame = self.read_nasa_raw('pw')
+            print("---NASA TLX weighted result---")
+            self.pw_data = self.rs_data
+            self.pw_data.loc[:, "mental":] = self.rs_data.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
+            self.analyze_nasa(self.pw_data, self.group_names, start=2, plot=True)
+        # weighted_frame.loc[:, "sum"] = weighted_frame.iloc[:, 2]
+        # for i in range(3,8):
+        # weighted_frame.loc[:, "sum"] += weighted_frame.iloc[:, i]
+        # return 6*2 results
+
+    def read_nasa_raw(self, raw_type):
+        assert raw_type == 'pw' or raw_type == 'rs'
+        # dict for dataframe
+        data_dict = {"sub_id": [],
+                     "group": [],
+                     "mental": [],
+                     "physical": [],
+                     "temporal": [],
+                     "performance": [],
+                     "effort": [],
+                     "frustration": []}
+
+        for name in self.file_names:
+            n_path = os.path.join(self.path, name)
+            with open(n_path, 'r') as csv_txt:
+                data_flag = False
+                weight = [0 for i in range(6)]  # store weight for pw and score for raw
+                for line in csv_txt:
+                    words = line.split(",")
+                    if words[0] == "SUBJECT ID:":
+                        data_dict["sub_id"].append(int(words[1]))
+                        continue
+                    if words[0] == "STUDY GROUP:":
+                        data_dict["group"].append(int(words[1]))
+                        continue
+                    if words[0] == "PAIRWISE CHOICES" or words[0] == "RATING SCALE:":
+                        data_flag = True
+                        continue
+                    if data_flag and len(words) > 1:
+                        if raw_type == 'pw':
+                            index = self.count_weight(words[-1].replace("\n", ""))
+                            weight[index] += 1
+                        elif raw_type == 'rs':
+                            index = self.count_weight(words[0])
+                            weight[index] = int(words[-1])
+
+                data_dict["mental"].append(weight[0])
+                data_dict["physical"].append(weight[1])
+                data_dict["temporal"].append(weight[2])
+                data_dict["performance"].append(weight[3])
+                data_dict["effort"].append(weight[4])
+                data_dict["frustration"].append(weight[5])
+
+        raw_frame = pd.DataFrame(data_dict)
+        return raw_frame
+
+    def analyze_nasa(self, data_frame, group_names, start=2, plot=True):
+        group_judge = data_frame.loc[:, "group"]  # get group number
+        group_count = data_frame["group"].nunique()
+        assert group_count == len(group_names)
+        plt_count = 0
+        if plot:
+            fig, axes = plt.subplots(2, 3, layout='constrained', sharey=True)
+
+        for i in range(start, data_frame.shape[1]):
+            group_data = []
+            group_data_plt = []
+            for j in range(group_count):
+                # TODO: Mind here, deal with nan or not
+                group_data.append(delete_outlier(data_frame.iloc[(group_judge == j).values, i]))
+                group_data_plt.append((data_frame.iloc[(group_judge == j).values, i]))
+
+            if plot:
+                # bp_colors = ["#5184B2", "#AAD4F8", "#F1A7B5", "#D55276", "#F2F5FA"]
+                bp_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
+                bp = axes.flat[plt_count].boxplot(group_data_plt, patch_artist=True, labels=group_names,
+                                                  showfliers=True, showmeans=True)
+                if len(self.plots) < 6:
+                    self.plots.append(bp)
+                else:
+                    self.plots[plt_count] = bp
+                for patch, color in zip(bp["boxes"], bp_colors):
+                    patch.set_facecolor(color)
+                    patch.set_linewidth(0.5)
+                    # patch.set_edgecolor('white')
+                for flier in bp["fliers"]:
+                    flier.set(marker='*')
+                for mean in bp["means"]:
+                    mean.set_markerfacecolor("#86C166")
+                    mean.set_markeredgecolor("#86C166")
+                axes.flat[plt_count].set_title(data_frame.columns[i])
+                plt_count += 1
+            print("------" + data_frame.columns[i] + " result:")
+            Toolbox.fried_man_test(group_data_plt)
+            # one_way_anova(group_data_plt)
+
+        if plot:
+            plt.show()
+
+
+    def count_weight(self, tag):
+        if tag == "Mental Demand":
+            return 0
+        elif tag == "Physical Demand":
+            return 1
+        elif tag == "Temporal Demand":
+            return 2
+        elif tag == "Performance":
+            return 3
+        elif tag == "Effort":
+            return 4
+        elif tag == "Frustration":
+            return 5
+
+
 
 
 def time_f(x):
@@ -107,19 +261,9 @@ def find_around_action(path, open_t, close_t, bias):
     return accuracy[1]-accuracy[0]
 
 
-def walk_dir(path):
-    # return all file names
-    file_list = []
-    temp = os.walk(path)
-    for path, dirs, files in temp:
-        file_list = files
-
-    return file_list
-
-
 def read_convert(path):
     # read all experiment files, convert to csv
-    files = walk_dir(path)
+    files = Toolbox.walk_dir(path)
     group_action = ["Camera Set", "Reflection Set", "Robot Menu Set"]
     data_dict = {"sub_id": [],
                  "group": [],
@@ -159,28 +303,6 @@ def one_way_anova(data_group):
     print(stats.f_oneway(data_group[0], data_group[1], data_group[2]))
 
 
-def fried_man_test(data_group):
-    print("Friedman: The null hypothesis cannot be rejected when p>0.05:")
-    p = stats.friedmanchisquare(*data_group)
-    # p = stats.kruskal(data_group[0], data_group[1], data_group[2])
-    # p = stats.median_test(data_group[0], data_group[1], data_group[2], nan_policy='omit')
-    print(p)
-    if p[1] < 0.05:
-        wilcoxon_post_hoc(data_group)
-
-
-def wilcoxon_post_hoc(data_group):
-    # can use `from itertools import combinations`
-    print("Found significant difference, run wilcoxon post-hoc test")
-    print("Wilcoxon: Reject the null hypothesis that there is no difference when p<0.05")
-    for i in range(len(data_group)):
-        for j in range(min(i+1, len(data_group)), len(data_group)):
-            p = stats.wilcoxon(data_group[i], data_group[j], correction=True, method="approx", alternative="two-sided",
-                               nan_policy="omit")
-            print("Group", i, "vs", j, ":", p)
-            # if p.pvalue <= 0.05:
-
-
 
 
 
@@ -204,107 +326,13 @@ def combine_qcsv(path):
     return pd.concat(data, ignore_index=True)
 
 
-def read_nasa_raw(path, file_name, raw_type):
-    assert raw_type == 'pw' or raw_type == 'rs'
-    # dict for dataframe
-    data_dict = {"sub_id": [],
-                 "group": [],
-                 "mental": [],
-                 "physical": [],
-                 "temporal": [],
-                 "performance": [],
-                 "effort": [],
-                 "frustration": []}
-
-    for name in file_name:
-        n_path = os.path.join(path, name)
-        with open(n_path, 'r') as csv_txt:
-            data_flag = False
-            weight = [0 for i in range(6)]  # store weight for pw and score for raw
-            for line in csv_txt:
-                words = line.split(",")
-                if words[0] == "SUBJECT ID:":
-                    data_dict["sub_id"].append(int(words[1]))
-                    continue
-                if words[0] == "STUDY GROUP:":
-                    data_dict["group"].append(int(words[1]))
-                    continue
-                if words[0] == "PAIRWISE CHOICES" or words[0] == "RATING SCALE:":
-                    data_flag = True
-                    continue
-                if data_flag and len(words) > 1:
-                    if raw_type == 'pw':
-                        index = count_weight(words[-1].replace("\n", ""))
-                        weight[index] += 1
-                    elif raw_type == 'rs':
-                        index = count_weight(words[0])
-                        weight[index] = int(words[-1])
-
-            data_dict["mental"].append(weight[0])
-            data_dict["physical"].append(weight[1])
-            data_dict["temporal"].append(weight[2])
-            data_dict["performance"].append(weight[3])
-            data_dict["effort"].append(weight[4])
-            data_dict["frustration"].append(weight[5])
-
-    raw_frame = pd.DataFrame(data_dict)
-    return raw_frame
 
 
-def count_weight(tag):
-    if tag == "Mental Demand":
-        return 0
-    elif tag == "Physical Demand":
-        return 1
-    elif tag == "Temporal Demand":
-        return 2
-    elif tag == "Performance":
-        return 3
-    elif tag == "Effort":
-        return 4
-    elif tag == "Frustration":
-        return 5
 
 
-def analyze_nasa(data_frame, group_names, start, plot=True):
-    group_judge = data_frame.loc[:, "group"]  # get group number
-    group_count = data_frame["group"].nunique()
-    assert group_count == len(group_names)
-    plt_count = 0
-    bp_group = []
-    if plot:
-        fig, axes = plt.subplots(2, 3, layout='constrained', sharey=True)
 
-    for i in range(start, data_frame.shape[1]):
-        group_data = []
-        group_data_plt = []
-        for j in range(group_count):
-            # TODO: Mind here, deal with nan or not
-            group_data.append(delete_outlier(data_frame.iloc[(group_judge == j).values, i]))
-            group_data_plt.append((data_frame.iloc[(group_judge == j).values, i]))
 
-        if plot:
-            # bp_colors = ["#5184B2", "#AAD4F8", "#F1A7B5", "#D55276", "#F2F5FA"]
-            bp_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
-            bp = axes.flat[plt_count].boxplot(group_data_plt, patch_artist=True, labels=group_names, showfliers=True, showmeans=True)
-            bp_group.append(bp)
-            for patch, color in zip(bp["boxes"], bp_colors):
-                patch.set_facecolor(color)
-                patch.set_linewidth(0.5)
-                # patch.set_edgecolor('white')
-            for flier in bp["fliers"]:
-                flier.set(marker='*')
-            for mean in bp["means"]:
-                mean.set_markerfacecolor("#86C166")
-                mean.set_markeredgecolor("#86C166")
-            axes.flat[plt_count].set_title(data_frame.columns[i])
-            plt_count += 1
-        print("------" + data_frame.columns[i] + " result:")
-        fried_man_test(group_data_plt)
-        # one_way_anova(group_data_plt)
 
-    if plot:
-        plt.show()
 
 
 def add_significance(start, end, height, p_value, ax):
@@ -330,41 +358,7 @@ def delete_outlier(s):
     return outlier
 
 
-def read_nasa(path, group_names):
-    # only handle NASA_TLX with or without each-time pairwise
-    # *be careful the file order*
-    # get file lists
-    file = walk_dir(path)
-    pw_file = []
-    rs_file = []
-    for name in file:
-        names = name.split("_")
-        if names[4] == "PW":
-            pw_file.append(name)
-        elif names[4] == "RS":
-            rs_file.append(name)
 
-    weighted = len(pw_file) == len(rs_file)
-    if len(pw_file) > 0:
-        assert weighted
-
-    # read scale result
-    rs_frame = read_nasa_raw(path, rs_file, 'rs')
-    # get raw result
-    print("---NASA TLX raw result---")
-    analyze_nasa(rs_frame, group_names, 2, plot=True)
-    # get weighted result
-    if weighted:
-        # read pair result and get weight
-        pw_frame = read_nasa_raw(path, pw_file, 'pw')
-        print("---NASA TLX weighted result---")
-        weighted_frame = rs_frame
-        weighted_frame.loc[:, "mental":] = rs_frame.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
-        analyze_nasa(weighted_frame, group_names, 2, plot=True)
-    # weighted_frame.loc[:, "sum"] = weighted_frame.iloc[:, 2]
-    # for i in range(3,8):
-        # weighted_frame.loc[:, "sum"] += weighted_frame.iloc[:, i]
-    # return 6*2 results
 
 
 def analyze_questionnaire(path):
@@ -373,7 +367,7 @@ def analyze_questionnaire(path):
     judge = data.loc[:, "group"]
     tested = "decrease"
     group = [data.loc[judge == 1, tested], data.loc[judge == 2, tested], data.loc[judge == 3, tested]]
-    fried_man_test(group)
+    Toolbox.fried_man_test(group)
 
     # print(stats.bartlett(point[0], point[1], point[2]))
 
@@ -385,7 +379,9 @@ if __name__ == "__main__":
     m_path_NASA = os.path.expanduser("~/Developer/Exp_Result/NASA_TLX")
     m_path_exp = r"C:\Users\SN-F-\Developer\exp_data\Exp_game"
     m_path = r"C:\Users\SN-F-\Developer\exp_data"
-    read_nasa(m_path_NASA, group_names=["NoRS", "Arr.", "Swap", "High."])
+
+    nasa_handler = NasaTLXProcess(m_path_NASA, ["NoRS", "Arr.", "Swap", "High."])
+    nasa_handler.read_nasa()
     # read_convert(m_path_exp)
     # print(1)
     # analyze_questionnaire(m_path)
