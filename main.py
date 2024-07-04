@@ -143,7 +143,8 @@ def read_convert(path):
     # convert to dataframe
     df = pd.DataFrame(data_dict)
     # analyze data
-    analyze_nasa(df, 3, 2)
+    # TODO: generalize this function?
+    # analyze_nasa(df, 3, 2)
     return df
 
 
@@ -277,7 +278,18 @@ def analyze_nasa(data_frame, group_names, start, plot=True):
             group_data_plt.append((data_frame.iloc[(group_judge == j).values, i]))
 
         if plot:
-            axes.flat[plt_count].boxplot(group_data_plt, labels=group_names, showfliers=True, showmeans=True)
+            # bp_colors = ["#5184B2", "#AAD4F8", "#F1A7B5", "#D55276", "#F2F5FA"]
+            bp_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
+            bp = axes.flat[plt_count].boxplot(group_data_plt, patch_artist=True, labels=group_names, showfliers=True, showmeans=True)
+            for patch, color in zip(bp["boxes"], bp_colors):
+                patch.set_facecolor(color)
+                patch.set_linewidth(0.5)
+                # patch.set_edgecolor('white')
+            for flier in bp["fliers"]:
+                flier.set(marker='*')
+            for mean in bp["means"]:
+                mean.set_markerfacecolor("#86C166")
+                mean.set_markeredgecolor("#86C166")
             axes.flat[plt_count].set_title(data_frame.columns[i])
             plt_count += 1
         print("------" + data_frame.columns[i] + " result:")
@@ -297,7 +309,6 @@ def delete_outlier(s):
 
 
 def read_nasa(path, group_names):
-    # TODO: Add first_time support, verify weighted result
     # only handle NASA_TLX with or without each-time pairwise
     # *be careful the file order*
     # get file lists
