@@ -159,18 +159,23 @@ def one_way_anova(data_group):
 
 
 def fried_man_test(data_group):
-    # TODO: add test mode support, find suitable post-hoc test
     print("Friedman: The null hypothesis cannot be rejected when p>0.05:")
     p = stats.friedmanchisquare(*data_group)
     # p = stats.kruskal(data_group[0], data_group[1], data_group[2])
     # p = stats.median_test(data_group[0], data_group[1], data_group[2], nan_policy='omit')
     print(p)
     if p[1] < 0.05:
-        print("Found significant difference, run wilcoxon post-hoc test")
-        print("Wilcoxon: Reject the null hypothesis that there is no difference when p<0.05")
-        print(stats.wilcoxon(data_group[0], data_group[1], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
-        print(stats.wilcoxon(data_group[0], data_group[2], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
-        print(stats.wilcoxon(data_group[1], data_group[2], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
+        wilcoxon_post_hoc(data_group)
+
+
+def wilcoxon_post_hoc(data_group):
+    # can use `from itertools import combinations`
+    print("Found significant difference, run wilcoxon post-hoc test")
+    print("Wilcoxon: Reject the null hypothesis that there is no difference when p<0.05")
+    for i in range(len(data_group)):
+        for j in range(min(i+1, len(data_group)), len(data_group)):
+            print("Group", i, "vs", j, ":",
+                  stats.wilcoxon(data_group[i], data_group[j], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
 
 
 def combine_qcsv(path):
@@ -276,7 +281,7 @@ def analyze_nasa(data_frame, group_names, start, plot=True):
             axes.flat[plt_count].set_title(data_frame.columns[i])
             plt_count += 1
         print("------" + data_frame.columns[i] + " result:")
-        # fried_man_test(group_data_plt)
+        fried_man_test(group_data_plt)
         # one_way_anova(group_data_plt)
 
     if plot:
