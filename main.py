@@ -175,8 +175,13 @@ def wilcoxon_post_hoc(data_group):
     print("Wilcoxon: Reject the null hypothesis that there is no difference when p<0.05")
     for i in range(len(data_group)):
         for j in range(min(i+1, len(data_group)), len(data_group)):
-            print("Group", i, "vs", j, ":",
-                  stats.wilcoxon(data_group[i], data_group[j], correction=True, method="approx", alternative="two-sided", nan_policy="omit"))
+            p = stats.wilcoxon(data_group[i], data_group[j], correction=True, method="approx", alternative="two-sided",
+                               nan_policy="omit")
+            print("Group", i, "vs", j, ":", p)
+            # if p.pvalue <= 0.05:
+
+
+
 
 
 def combine_qcsv(path):
@@ -266,8 +271,9 @@ def analyze_nasa(data_frame, group_names, start, plot=True):
     group_count = data_frame["group"].nunique()
     assert group_count == len(group_names)
     plt_count = 0
+    bp_group = []
     if plot:
-        fig, axes = plt.subplots(2, 3, layout='constrained')
+        fig, axes = plt.subplots(2, 3, layout='constrained', sharey=True)
 
     for i in range(start, data_frame.shape[1]):
         group_data = []
@@ -281,6 +287,7 @@ def analyze_nasa(data_frame, group_names, start, plot=True):
             # bp_colors = ["#5184B2", "#AAD4F8", "#F1A7B5", "#D55276", "#F2F5FA"]
             bp_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
             bp = axes.flat[plt_count].boxplot(group_data_plt, patch_artist=True, labels=group_names, showfliers=True, showmeans=True)
+            bp_group.append(bp)
             for patch, color in zip(bp["boxes"], bp_colors):
                 patch.set_facecolor(color)
                 patch.set_linewidth(0.5)
@@ -299,6 +306,21 @@ def analyze_nasa(data_frame, group_names, start, plot=True):
     if plot:
         plt.show()
 
+
+def add_significance(start, end, height, p_value, ax):
+    x = [start, start, end, end]
+    y = [height, height + 0.02, height + 0.02, height]
+    ax.plot(x, y, color="k", linewidth=1.5)
+
+    sign = ""
+    if p_value < 0.001:
+        sign = "***"
+    elif p_value < 0.01:
+        sign = "**"
+    elif p_value <= 0.05:
+        sign = "*"
+
+    ax.text((start+end) / 2, height + 0.03, sign, ha="center", va="bottom")
 
 def delete_outlier(s):
     q1, q3 = s.quantile(.25), s.quantile(.75)
