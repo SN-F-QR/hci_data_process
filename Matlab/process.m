@@ -149,18 +149,41 @@ end
 
 % assign string name to types
 names = x_axis';
-types = categorical(names(types));
+% types = categorical(names(types));
 
 % deal with experiment groups
 group = ones(size(type, 1), 1) * (1:groupNum);
 group = group(:);
 
 
+% post-hoc处理
+post_hoc = cell(27,1);
+n = 1;
+for k = 1:6
+    if any(k == [1,2,4])
+        start = 1;
+    else
+        start = 2;
+    end
+    if (res_diff_p(k) < 0.06)
+        for i = start:groupNum
+            for j = i+1:groupNum
+                p = signrank(d_mean(i*14-13:i*14,k), d_mean(j*14-13:j*14,k));
+                post_hoc{n} = {k,i,j,p};
+                n = n + 1;
+            end
+        end
+    end
+end
+
+            
+        
+
 figure;
 % 分组柱状图
 graph_b = bar(x_axis, res, 'EdgeColor', 'none');
 set(gca, 'Ygrid', 'on');
-set(gca, 'ytick', (1:5));
+set(gca, 'ytick', (1:7));
 % set(gca, 'xtick', []);
 
 hold on;
@@ -178,23 +201,37 @@ for i = 1:groupNum
 end
 hold off;
 
-xtips_1 = graph_b(1).XEndPoints;
-xtips_2 = xtips;
-for i = 1:6 % howMuchQuesOneGroup
-    if (res_diff_p(i) <= 0.001)
-        sigline(3, [xtips_1(i), xtips_2(i)], [], 5);
-    elseif (res_diff_p(i) <= 0.01)
-        sigline(2, [xtips_1(i), xtips_2(i)], [], 5);
-    elseif (res_diff_p(i) <= 0.05)
-        sigline(1, [xtips_1(i), xtips_2(i)], [], 5);
+% xtips_1 = graph_b(1).XEndPoints;
+% xtips_2 = xtips;
+tmp_k = 0;
+for i = 1:length(post_hoc) 
+    if isempty(post_hoc{i})
+        break
+    end
+    [exp_group, left, right, p] = post_hoc{i}{:};
+    xtip1 = graph_b(left).XEndPoints(exp_group);
+    xtip2 = graph_b(right).XEndPoints(exp_group);
+    if (exp_group ~= tmp_k)
+        basic_height = 6.5;
+        tmp_k = exp_group;
+    elseif(p <=0.05)
+        basic_height = basic_height + 0.5;
+    end
+    if (p <= 0.001)
+        sigline(3, [xtip1, xtip2], [], basic_height);
+    elseif (p <= 0.01)
+        sigline(2, [xtip1, xtip2], [], basic_height);
+    elseif (p <= 0.05)
+        % sigline(1, [xtips_1(i), xtips_2(i)], [], 5);
+        sigline(1, [xtip1, xtip2], [], basic_height);
     end
 end
 
     
 % 箱线图
 % boxchart(types, data, 'GroupByColor', group);
-ylim([1,6]);
-legend(["2D store", "3D store"]);
+ylim([1,8]);
+legend(["NoRS", "Arr.", "Swap", "High."]);
 
 
 function showNormality(x)
