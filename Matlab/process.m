@@ -50,30 +50,63 @@ types = repmat(type, groupNum, 1); % repeat to match exp group
 fields_arr = fieldnames(s_arr);
 fields_sw = fieldnames(s_sw);
 
-% 计算每个问题的平均值和标准差
-% res = zeros(2,numel(fields_2d));
-% res_std = zeros(2, howMuchQuesOneGroup);
+% % 计算每个问题的平均值和标准差
+% res = zeros(4,numel(fields_arr));
+% res_std = zeros(4, howMuchQuesOneGroup);
 % res_diff_p = zeros(1, howMuchQuesOneGroup);
-% x_axis = strings(1, numel(fields_2d));
-% for k=1:numel(fields_2d)
-%     name = string(fields_2d(k));
+% x_axis = strings(1, numel(fields_arr));
+% for k=1:numel(fields_arr)
+%     name = string(fields_arr(k));
 %     names = split(name, '_');
-%     name = names(2) + k;
+%     name = names(1);
 %     disp(name);
 %     x_axis(k) = name;
 % 
 %     %showNormality(s_2d.(fields_2d{k}));
 %     %showNormality(s_3d.(fields_3d{k}));
 % 
-%     res(2*k-1) = mean(s_2d.(fields_2d{k}));
-%     res(2*k) = mean(s_3d.(fields_3d{k}));
+%     for m=1:length(d_groups)
+%         res(4*k+m-4) = mean(d_groups{m}(:,k));
+%         res_std(4*k+m-4) = std(d_groups{m}(:,k), 1);
+%     end
 % 
-%     res_std(2*k-1) = std(s_2d.(fields_2d{k}), 1);
-%     res_std(2*k) = std(s_3d.(fields_3d{k}), 1);
+%     if (res(4*k-3) ~= 0)
+%         % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
+%         res_diff_p(k) = friedman([d_groups{1}(:,k),d_groups{2}(:,k), d_groups{3}(:,k), d_groups{4}(:,k)], 1, "off");
+%     else
+%         % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
+%         res_diff_p(k) = friedman([d_groups{2}(:,k), d_groups{3}(:,k), d_groups{4}(:,k)], 1, "off");
+%     end
+% 
+%     % res(2*k-1) = mean(s_2d.(fields_2d{k}));
+%     % res(2*k) = mean(s_3d.(fields_3d{k}));
+%     % 
+%     % res_std(2*k-1) = std(s_2d.(fields_2d{k}), 1);
+%     % res_std(2*k) = std(s_3d.(fields_3d{k}), 1);
 % 
 %     % Wilcoxon signed rank test
-%     res_diff_p(k) = signrank(s_2d.(fields_2d{k}), s_3d.(fields_3d{k}));
+%     % res_diff_p(k) = signrank(s_2d.(fields_2d{k}), s_3d.(fields_3d{k}));
 % 
+% end
+% 
+% % post-hoc处理
+% post_hoc = cell(100,1);
+% n = 1;
+% for k = 1:15  % ques group count
+%     if (res(1,k) ~= 0)
+%         start = 1;
+%     else
+%         start = 2;
+%     end
+%     if (res_diff_p(k) < 0.06)
+%         for i = start:groupNum
+%             for j = i+1:groupNum
+%                 p = signrank(d_groups{i}(:,k), d_groups{j}(:,k));
+%                 post_hoc{n} = {k,i,j,p};
+%                 n = n + 1;
+%             end
+%         end
+%     end
 % end
 
 % 仅计算每个sub-scale的总平均分和标准差
@@ -101,7 +134,7 @@ for k=1:(numel(fields_arr)+1)
     else
         group_name = "End";
     end
-        
+
 
     group_name = regexprep(group_name, '[^a-zA-Z]', '');  % clean num in name
     % calculate mean when the ques group changes
@@ -113,13 +146,21 @@ for k=1:(numel(fields_arr)+1)
             d_mean(14*m-13:14*m, i) = mean(d_groups{m}(:,j:k-1), 2);
             res(m,i) = mean(d_mean(14*m-13:14*m, i));
             res_std(m,i) = std(d_mean(14*m-13:14*m, i), 1);
-            if any(i == [1,2,4])
-                % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
-                res_diff_p(i) = friedman([d_mean(1:14,i),d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "off");
-            else
-                % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
-                res_diff_p(i) = friedman([d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "off");
-            end
+            % if any(i == [1,2,4])
+            %     % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
+            %     res_diff_p(i) = friedman([d_mean(1:14,i),d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "on");
+            % else
+            %     % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
+            %     res_diff_p(i) = friedman([d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "on");
+            % end
+        end
+
+        if any(i == [1,2,4])
+            % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
+            res_diff_p(i) = friedman([d_mean(1:14,i),d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "on");
+        else
+            % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
+            res_diff_p(i) = friedman([d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "on");
         end
         % d_mean(1:14,i) = mean(d_no(:,j:k-1), 2);
         % d_mean(15:28,i) = mean(d_arr(:,j:k-1), 2);
@@ -143,7 +184,7 @@ for k=1:(numel(fields_arr)+1)
     %showNormality(s_3d.(fields_3d{k}));
 
     % Wilcoxon signed rank test
-    
+
 
 end
 
@@ -157,9 +198,9 @@ group = group(:);
 
 
 % post-hoc处理
-post_hoc = cell(27,1);
+post_hoc = cell(100,1);
 n = 1;
-for k = 1:6
+for k = 1:6  % ques group count
     if any(k == [1,2,4])
         start = 1;
     else
@@ -196,7 +237,7 @@ for i = 1:groupNum
     'LineWidth', 2);
     e.Color = RGB_Gray;
     text(xtips,ytips,labels,'HorizontalAlignment','center', ...
-        'VerticalAlignment','bottom');
+        'VerticalAlignment','bottom', 'FontSize', 10);
     graph_b(i).FaceColor = RGB(i);
 end
 hold off;
@@ -214,16 +255,20 @@ for i = 1:length(post_hoc)
     if (exp_group ~= tmp_k)
         basic_height = 6.5;
         tmp_k = exp_group;
-    elseif(p <=0.05)
-        basic_height = basic_height + 0.5;
+        n = 0;
+    % elseif(p <=0.05)
+        % basic_height = basic_height + 0.5;
     end
     if (p <= 0.001)
-        sigline(3, [xtip1, xtip2], [], basic_height);
+        sigline(3, [xtip1, xtip2], [], basic_height + 0.5*n);
+        n = n + 1;
     elseif (p <= 0.01)
-        sigline(2, [xtip1, xtip2], [], basic_height);
+        sigline(2, [xtip1, xtip2], [], basic_height + 0.5*n);
+        n = n + 1;
     elseif (p <= 0.05)
         % sigline(1, [xtips_1(i), xtips_2(i)], [], 5);
-        sigline(1, [xtip1, xtip2], [], basic_height);
+        sigline(1, [xtip1, xtip2], [], basic_height + 0.5*n);
+        n = n + 1;
     end
 end
 
