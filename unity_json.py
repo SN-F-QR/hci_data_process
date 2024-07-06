@@ -60,8 +60,15 @@ class UnityLogHandler:
                     mean.set_markeredgecolor("#86C166")
                 axes.flat[plt_count].set_title(self.df.columns[index_depend])
             print("------" + self.df.columns[index_depend] + " result:")
+            # 考虑把这一部分改到main里面
             if index_depend == self.df.columns.get_loc('recGoodsFind'):
                 p_value = Toolbox.fried_man_test(group_data[1:])[1]
+            elif index_depend == self.df.columns.get_loc('adapt.'):
+                Toolbox.normal_distribute(group_data[1:])
+                p_value = Toolbox.one_anova(group_data[1:])[1]
+            elif index_depend == self.df.columns.get_loc('expTime') or index_depend == self.df.columns.get_loc('freq.'):
+                Toolbox.normal_distribute(group_data)
+                p_value = Toolbox.one_anova(group_data)[1]
             else:
                 p_value = Toolbox.fried_man_test(group_data)[1]
             if p_value < 0.06:
@@ -97,9 +104,10 @@ if __name__ == '__main__':
     path = os.path.expanduser("~/Developer/Exp_Result/finished")
     tmp = UnityLogHandler(path, ["NoRS", "Arr.", "High.", "Swap"])
     adjusted_df = tmp.df
-    adjusted_df['freq.'] = adjusted_df['pickOnShelf'] / adjusted_df['expTime']
+    adjusted_df['freq.'] = adjusted_df['newGoodsFind'] / adjusted_df['expTime']
     group_judge = adjusted_df.loc[:, "group"]
     adjusted_df.iloc[(group_judge == 0).values, adjusted_df.columns.get_loc('recGoodsFind')] = 0
+    adjusted_df['adapt.'] = adjusted_df['recGoodsFind'] / adjusted_df['newGoodsFind']
     group_lists = adjusted_df['group'].tolist()
     for index, group_name in enumerate(group_lists):
         if group_name == 2:

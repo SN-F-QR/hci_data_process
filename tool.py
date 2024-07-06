@@ -38,3 +38,18 @@ class Toolbox:
                 if p.pvalue <= 0.05:
                     significant.append((i, j, p.pvalue))
         return significant
+
+    @staticmethod
+    def normal_distribute(data_group, is_list=True):
+        if is_list:
+            for one_group in data_group:
+                Toolbox.normal_distribute(one_group, False)
+        else:
+            stat, p = stats.shapiro(data_group)
+            print('The normal distribution outputs p:', p, 'with stats:', stat)
+
+    @staticmethod
+    def one_anova(data_group):
+        stat, p = stats.f_oneway(*data_group)
+        print("One-way ANOVA: The null hypothesis cannot be rejected when p>0.05:", p)
+        return [stat, p]
