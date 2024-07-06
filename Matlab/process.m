@@ -157,10 +157,10 @@ for k=1:(numel(fields_arr)+1)
 
         if any(i == [1,2,4])
             % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
-            res_diff_p(i) = friedman([d_mean(1:14,i),d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "on");
+            res_diff_p(i) = friedman([d_mean(1:14,i),d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "off");
         else
             % res_diff_p(i) = signrank(d_mean(1:14,i), d_mean(15:28,i));
-            res_diff_p(i) = friedman([d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "on");
+            res_diff_p(i) = friedman([d_mean(15:28,i), d_mean(29:42,i), d_mean(43:56,i)], 1, "off");
         end
         % d_mean(1:14,i) = mean(d_no(:,j:k-1), 2);
         % d_mean(15:28,i) = mean(d_arr(:,j:k-1), 2);
@@ -209,8 +209,9 @@ for k = 1:6  % ques group count
     if (res_diff_p(k) < 0.06)
         for i = start:groupNum
             for j = i+1:groupNum
-                p = signrank(d_mean(i*14-13:i*14,k), d_mean(j*14-13:j*14,k));
+                [p,h,stats] = signrank(d_mean(i*14-13:i*14,k), d_mean(j*14-13:j*14,k));
                 post_hoc{n} = {k,i,j,p};
+                disp(stats);
                 n = n + 1;
             end
         end
