@@ -5,7 +5,7 @@ from tool import Toolbox
 
 class GoogleQues:
     def __init__(self, path, group_names):
-        self.data = []
+        self.data = {}
         self.path = path
         self.group_names = group_names
         self.file_names = []
@@ -42,3 +42,5 @@ if __name__ == '__main__':
     path = os.path.expanduser("~/Developer/Exp_Result/VR Rec Questionnaire.csv")
     tmp = GoogleQues(path, ["NoRS", "Arr.", "Swap", "High."])
     tmp.clean_column_names(True)
+    print(tmp.data['BC2'].mean())
+    print(tmp.data['BC2'].std())

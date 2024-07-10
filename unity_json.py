@@ -68,7 +68,7 @@ class UnityLogHandler:
                 p_value = Toolbox.one_anova(group_data[1:])[1]
             elif index_depend == self.df.columns.get_loc('expTime') or index_depend == self.df.columns.get_loc('freq.'):
                 Toolbox.normal_distribute(group_data)
-                p_value = Toolbox.one_anova(group_data)[1]
+                p_value = Toolbox.fried_man_test(group_data)[1]
             else:
                 p_value = Toolbox.fried_man_test(group_data)[1]
             if p_value < 0.06:

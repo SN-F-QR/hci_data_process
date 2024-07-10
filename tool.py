@@ -3,6 +3,7 @@ import pandas as pd
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
+from statsmodels.sandbox.stats.multicomp import multipletests
 
 
 class Toolbox:
@@ -29,14 +30,18 @@ class Toolbox:
         significant = []
         print("Found significant difference, run wilcoxon post-hoc test")
         print("Wilcoxon: Reject the null hypothesis that there is no difference when p<0.05")
+        p_group = []
         for i in range(len(data_group)):
             for j in range(min(i + 1, len(data_group)), len(data_group)):
-                p = stats.wilcoxon(data_group[i], data_group[j], correction=True, method="approx",
+                p = stats.wilcoxon(data_group[i], data_group[j], correction=False, method="auto",
                                    alternative="two-sided",
                                    nan_policy="omit")
                 print("Group", i, "vs", j, ":", p)
+                p_group.append(p[1])
                 if p.pvalue <= 0.05:
                     significant.append((i, j, p.pvalue))
+        reject, p_adjusted, _, _ = multipletests(p_group, method='holm')
+        print("reject:", reject, "adjusted p", p_adjusted)
         return significant
 
     @staticmethod
