@@ -26,7 +26,7 @@ d_sw = table2array(ques(:,29:43));
 d_hl = table2array(ques(:,44:58));
 
 % use cell to arrange all data group
-d_groups = {d_no, d_arr, d_sw, d_hl};
+d_groups = {d_no, d_arr, d_hl, d_sw};
 for i = 1:length(d_groups)
     d_groups{i}(:,2) = 8 - d_groups{i}(:,2);
     d_groups{i}(:,4) = 8 - d_groups{i}(:,4);
@@ -277,7 +277,7 @@ end
 % 箱线图
 % boxchart(types, data, 'GroupByColor', group);
 ylim([1,8]);
-legend(["NoRS", "Arr.", "Swap", "High."]);
+legend(["NoRS", "Arr.", "High.", "Swap"]);
 
 
 function showNormality(x)
