@@ -116,7 +116,7 @@ res_std = zeros(4, 6);
 res_diff_p = zeros(1, 6);
 d_mean = zeros(56, 6);
 x_axis = strings(1, 6);
-last_name = "SA";
+last_name = "SoA";
 i = 1;
 j = 1;
 for k=1:(numel(fields_arr)+1)
@@ -130,6 +130,8 @@ for k=1:(numel(fields_arr)+1)
             group_name = "HQ";
         elseif (group_name == "TR2")
             group_name = "IT";
+        elseif any(group_name == ["SA1", "SA2", "SA3", "SA4"])
+            group_name = "SoA";
         end
     else
         group_name = "End";
