@@ -9,8 +9,8 @@ from tool import Toolbox
 
 class NasaTLXProcess:
     def __init__(self, path, group_names):
-        self.rs_data = []
-        self.pw_data = []
+        self.rs_data = pd.DataFrame()
+        self.pw_data = pd.DataFrame()
         self.path = path
         self.group_names = group_names
         self.file_names = []
@@ -40,7 +40,7 @@ class NasaTLXProcess:
         self.rs_data = self.read_nasa_raw('rs')
         # get raw result
         print("---NASA TLX raw result---")
-        self.analyze_nasa(self.rs_data, self.group_names, start=2, plot=True)
+        # self.analyze_nasa(self.rs_data, self.group_names, start=2, plot=True)
         # get weighted result
         if weighted:
             # read pair result and get weight
@@ -110,7 +110,7 @@ class NasaTLXProcess:
             # fig, axes = plt.subplots(1, 6, layout="constrained", figsize=(12, 4)) # for two columns
             fig, axes = plt.subplots(2, 3, layout="constrained")  # smaller space
 
-        for i in range(start, data_frame.shape[1]):
+        for i in range(start, data_frame.shape[1]):  # column nums, namely the dependent variables
             group_data = []
             group_data_plt = []
             for j in range(group_count):
@@ -123,10 +123,6 @@ class NasaTLXProcess:
                 bp_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
                 bp = axes.flat[plt_count].boxplot(group_data_plt, patch_artist=True, labels=group_names,
                                                   showfliers=True, showmeans=True)
-                if len(self.plots) < 6:
-                    self.plots.append(bp)
-                else:
-                    self.plots[plt_count] = bp
 
                 for patch, color in zip(bp["boxes"], bp_colors):
                     patch.set_facecolor(color)
@@ -160,13 +156,23 @@ class NasaTLXProcess:
             plt_count += 1
             # one_way_anova(group_data_plt)
 
+
+        data_frame['average'] = data_frame[['mental', 'physical', 'temporal', 'performance','effort', 'frustration']].mean(axis=1)
+        group_data = []
+        for j in range(group_count):
+            group_data.append((data_frame.iloc[(group_judge == j).values, data_frame.columns.get_loc('average')]))
+        print("------" + "average result:")
+        p_value = Toolbox.fried_man_test(group_data)[1]
+        if p_value < 0.06:
+            sig_group = Toolbox.wilcoxon_post_hoc(group_data)
+
         if plot:
             # Adjust height for all plot to maintain same y-axis
             for ax in axes.flat:
                 ax.set_ylim(-5, 100 + max_sig_count * 15)
                 ax.set_yticks(np.arange(0, 101, 20))
             # fig.tight_layout()
-            plt.savefig("NASA_TLX.pdf", dpi=300, bbox_inches='tight')
+            plt.savefig("NASA_TLX_new.pdf", dpi=300, bbox_inches='tight')
             plt.show()
             plt.close()
 
@@ -187,7 +193,7 @@ class NasaTLXProcess:
     @staticmethod
     def add_significance(start, end, height, p_value, ax):
         x = [start, start, end, end]
-        y = [height, height + 3, height + 3, height]
+        y = [height, height + 1, height + 1, height]
         ax.plot(x, y, color="k", linewidth=1.5)
 
         sign = ""
@@ -391,8 +397,16 @@ if __name__ == "__main__":
     m_path_exp = r"C:\Users\SN-F-\Developer\exp_data\Exp_game"
     m_path = r"C:\Users\SN-F-\Developer\exp_data"
 
-    nasa_handler = NasaTLXProcess(m_path_NASA, ["NoRS", "Arr.", "Swap", "High."])
+    nasa_handler = NasaTLXProcess(m_path_NASA, ["NoRS", "Arr.", "High.", "Swap"])
     nasa_handler.read_nasa()
+    group_lists = nasa_handler.rs_data['group'].tolist()
+    for index, group_name in enumerate(group_lists):
+        if group_name == 2:
+            group_lists[index] = 3
+        elif group_name == 3:
+            group_lists[index] = 2
+    nasa_handler.rs_data['group'] = pd.Series(group_lists)
+    nasa_handler.analyze_nasa(nasa_handler.rs_data, nasa_handler.group_names, start=2, plot=True)
     # read_convert(m_path_exp)
     # print(1)
     # analyze_questionnaire(m_path)
