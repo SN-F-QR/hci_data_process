@@ -4,11 +4,14 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from tool import Toolbox
+import warnings
+
 
 class DataProcess:
-    def __init__(self, path, group_names):
+    def __init__(self, path, group_names, saved_name='output.pdf'):
         self.path = path  # path to the document includes data file(s)
         self.group_names = group_names  # experimental groups
+        self.saved_name = saved_name
         self.group_num = len(group_names)
         self.file_names = Toolbox.walk_dir(self.path)  # record all data files
         self.df = pd.DataFrame()
@@ -25,23 +28,24 @@ class DataProcess:
         group_colors: colors for each group
     """
     # TODO: Add fig_design 1x6 and 1x1?
-    def plot_sub_data(self, start=2, fig_design=(2, 3), subplot_titles=None, group_colors=None, flier_mark='o'):
+    def plot_sub_data(self, start=2, fig_design=(2, 3), subplot_titles=None, group_colors=None, flier_mark='o', p_corretion=False):
         if group_colors is None:
             group_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
-        group_judge = self.df.loc[:, "group"]  # get group number for further filtering
         assert self.df["group"].nunique() == self.group_num
         # plt_count = 0
         max_sig_count = 0  # To decide the max height of each subplot
         fig, axes = plt.subplots(fig_design[0], fig_design[1], layout="constrained")
         self.plots = axes
         # fig, axes = plt.subplots(1, 6, layout="constrained", figsize=(12, 4)) # for two columns
+        if fig_design[0] * fig_design[1] < self.df.shape[1] - start:
+            end = fig_design[0] * fig_design[1] + start
+            warnings.warn('Variables after ' + self.df.columns[end-1] + ' will be ignored in subplots.')
+        else:
+            end = self.df.shape[1]
 
-        for i in range(start, self.df.shape[1]):  # column nums, namely the dependent variables
-            group_data = []  # store all data in same group for comparision
+        for i in range(start, end):  # column index, namely the dependent variables
+            group_data = self.extract_by_group(i)
             plt_index = i - start
-            for j in range(self.group_num):
-                # group_data.append(delete_outlier(data_frame.iloc[(group_judge == j).values, i]))
-                group_data.append((self.df.iloc[(group_judge == j).values, i]))
 
             # Subplot Setting
             # supported color
@@ -67,7 +71,7 @@ class DataProcess:
                 axes.flat[plt_index].set_title(subplot_titles[plt_index])
 
             # Draw significant lines if any
-            sig_group = self.significance_test(self.df.columns[i], group_data)
+            sig_group = self.significance_test(self.df.columns[i], group_data, p_corretion)
             if len(sig_group) > 0:
                 max_sig_count = max(max_sig_count, len(sig_group))
                 height_add = 0
@@ -86,9 +90,18 @@ class DataProcess:
             ax.set_ylim(-5, 100 + max_sig_count * 15)
             ax.set_yticks(np.arange(0, 101, 20))
         # fig.tight_layout()
-        # plt.savefig("NASA_TLX_new.pdf", dpi=300, bbox_inches='tight')
+        plt.savefig(self.saved_name, dpi=300, bbox_inches='tight')
         plt.show()
         plt.close()
+
+    # arrange the data by group in using the index of column
+    def extract_by_group(self, column_index):
+        group_judge = self.df.loc[:, "group"]  # get group number for filtering
+        group_data = []
+        for j in range(self.group_num):
+            # group_data.append(delete_outlier(data_frame.iloc[(group_judge == j).values, i]))
+            group_data.append((self.df.iloc[(group_judge == j).values, column_index]))
+        return group_data
 
     # Re-write this if other analyze method is expected
     def significance_test(self, name, data, correction=False):
@@ -118,11 +131,13 @@ class DataProcess:
         ax.text((start + end) / 2, height + 1, sign, ha="center", va="bottom")
 
 
-class NasaTLXProcess(DataProcess):
-    def __init__(self, path, group_names):
-        super().__init__(path, group_names)
+class TLXProcess(DataProcess):
+    # Judge Raw or Weighted automatically, use raw_nasa to use raw only
+    def __init__(self, path, group_names, raw_nasa=False):
+        super().__init__(path, group_names, 'nasa_tlx_output.pdf')
         self.rs_data = pd.DataFrame()
         self.pw_data = pd.DataFrame()
+        self.raw_nasa = raw_nasa
 
     # only handle NASA_TLX with or without each-time pairwise
     def read_nasa(self):
@@ -142,16 +157,18 @@ class NasaTLXProcess(DataProcess):
 
         # read scale result
         self.rs_data = self.read_nasa_raw('rs')
+        self.df = self.rs_data
         # get raw result
         print("---NASA TLX raw result---")
         # self.analyze_nasa(self.rs_data, self.group_names, start=2, plot=True)
         # get weighted result
-        if weighted:
+        if weighted and not self.raw_nasa:
             # read pair result and get weight
             pw_frame = self.read_nasa_raw('pw')
             print("---NASA TLX weighted result---")
             self.pw_data = self.rs_data[:]  # avoid ref
             self.pw_data.loc[:, "mental":] = self.rs_data.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
+            self.df = self.pw_data
 
         # weighted_frame.loc[:, "sum"] = weighted_frame.iloc[:, 2]
         # for i in range(3,8):
@@ -203,96 +220,14 @@ class NasaTLXProcess(DataProcess):
         raw_frame = pd.DataFrame(data_dict)
         return raw_frame
 
-    def analyze_nasa(self, data_frame, group_names, start=2, plot=True):
-        group_judge = data_frame.loc[:, "group"]  # get group number
-        group_count = data_frame["group"].nunique()
-        assert group_count == len(group_names)
-        plt_count = 0
-        max_sig_count = 0
-        if plot:
-            # fig, axes = plt.subplots(1, 6, layout="constrained", figsize=(12, 4)) # for two columns
-            fig, axes = plt.subplots(2, 3, layout="constrained")  # smaller space
+    def plot_sub_data(self, **kwargs):
+        super().plot_sub_data(**kwargs)
 
-        for i in range(start, data_frame.shape[1]):  # column nums, namely the dependent variables
-            group_data = []
-            group_data_plt = []
-            for j in range(group_count):
-                # TODO: Mind here, deal with nan or not
-                group_data.append(delete_outlier(data_frame.iloc[(group_judge == j).values, i]))
-                group_data_plt.append((data_frame.iloc[(group_judge == j).values, i]))
-
-            if plot:
-                # bp_colors = ["#5184B2", "#AAD4F8", "#F1A7B5", "#D55276", "#F2F5FA"]
-                bp_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
-                bp = axes.flat[plt_count].boxplot(group_data_plt, patch_artist=True, labels=group_names,
-                                                  showfliers=True, showmeans=True)
-
-                for patch, color in zip(bp["boxes"], bp_colors):
-                    patch.set_facecolor(color)
-                    patch.set_linewidth(0.5)
-                    # patch.set_edgecolor('white')
-                for flier in bp["fliers"]:
-                    flier.set(marker='*')
-                for mean in bp["means"]:
-                    mean.set_markerfacecolor("#86C166")
-                    mean.set_markeredgecolor("#86C166")
-                axes.flat[plt_count].set_title(data_frame.columns[i])
-            print("------" + data_frame.columns[i] + " result:")
-            # axes.flat[plt_count].set_ylim(-5, 100 + 3 * 15)
-            # axes.flat[plt_count].set_yticks(np.arange(0, 101, 20))
-
-            p_value = Toolbox.fried_man_test(group_data_plt)[1]
-            if p_value < 0.06:
-                sig_group = Toolbox.wilcoxon_post_hoc(group_data_plt)
-                max_sig_count = max(max_sig_count, len(sig_group))
-                height_add = 0
-                height_basic = axes.flat[plt_count].get_ylim()[1]
-                axes.flat[plt_count].set_ylim(-5, height_basic + len(sig_group) * 15)
-                axes.flat[plt_count].set_yticks(np.arange(0, 101, 20))
-                for res in sig_group:
-                    # Get x_axis positions for start and end
-                    x_s = axes.flat[plt_count].get_xticks()[res[0]]
-                    x_e = axes.flat[plt_count].get_xticks()[res[1]]
-                    NasaTLXProcess.add_significance(x_s, x_e, height_basic + height_add, res[2], axes.flat[plt_count])
-                    height_add += 15
-
-            plt_count += 1
-            # one_way_anova(group_data_plt)
-
-
-        data_frame['average'] = data_frame[['mental', 'physical', 'temporal', 'performance','effort', 'frustration']].mean(axis=1)
-        group_data = []
-        for j in range(group_count):
-            group_data.append((data_frame.iloc[(group_judge == j).values, data_frame.columns.get_loc('average')]))
-        print("------" + "average result:")
-        p_value = Toolbox.fried_man_test(group_data)[1]
-        if p_value < 0.06:
-            sig_group = Toolbox.wilcoxon_post_hoc(group_data)
-
-        if plot:
-            # Adjust height for all plot to maintain same y-axis
-            for ax in axes.flat:
-                ax.set_ylim(-5, 100 + max_sig_count * 15)
-                ax.set_yticks(np.arange(0, 101, 20))
-            # fig.tight_layout()
-            plt.savefig("NASA_TLX_new.pdf", dpi=300, bbox_inches='tight')
-            plt.show()
-            plt.close()
-
-    def count_weight(self, tag):
-        if tag == "Mental Demand":
-            return 0
-        elif tag == "Physical Demand":
-            return 1
-        elif tag == "Temporal Demand":
-            return 2
-        elif tag == "Performance":
-            return 3
-        elif tag == "Effort":
-            return 4
-        elif tag == "Frustration":
-            return 5
-
+    # TODO: Add plot option
+    def nasa_average(self, start=2):
+        self.df['average'] = self.df.iloc[:, start:start+6].mean(axis=1)
+        average_by_group = self.extract_by_group(self.df.columns.get_loc('average'))
+        self.significance_test('Overall TLX', average_by_group)
 
 
 class UnityLogHandler:
@@ -371,7 +306,7 @@ class UnityLogHandler:
                     # Get x_axis positions for start and end
                     x_s = axes.flat[plt_count].get_xticks()[res[0]]
                     x_e = axes.flat[plt_count].get_xticks()[res[1]]
-                    NasaTLXProcess.add_significance(x_s, x_e, height_basic + height_add, res[2], axes.flat[plt_count])
+                    TLXProcess.add_significance(x_s, x_e, height_basic + height_add, res[2], axes.flat[plt_count])
                     height_add += 15
 
             plt_count += 1
@@ -409,6 +344,10 @@ if __name__ == '__main__':
     tmp.analyze_jsons((2, 3))
     """
     m_path_NASA = os.path.expanduser("~/Developer/Exp_Result/NASA_TLX")
-    nasa_handler = NasaTLXProcess(m_path_NASA, ["NoRS", "Arr.", "High.", "Swap"])
+    plot_titles = ['mental', 'physical', 'temporal', 'performance', 'effort', 'frustration']
+    nasa_handler = TLXProcess(m_path_NASA, ["A", "B", "C", "D"], raw_nasa=False)
     nasa_handler.read_nasa()
+    nasa_handler.nasa_average(start=2)  # Calculate average score and add to dataframe
+    nasa_handler.plot_sub_data(start=2, fig_design=(2, 3),
+                               subplot_titles=plot_titles, group_colors=None, p_corretion=False)
 

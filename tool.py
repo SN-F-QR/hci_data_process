@@ -44,9 +44,9 @@ class Toolbox:
             reject, p_adjusted, _, _ = multipletests(p_group, method='holm')
             print("Reject null?:", reject, "Adjusted p:", p_adjusted)
             final_sig = []
-            for i, j, p, state, p_new in zip(significant, reject, p_adjusted):
+            for sig, state, p_new in zip(significant, reject, p_adjusted):
                 if state:
-                    final_sig.append((i, j, p_new))
+                    final_sig.append((sig[0], sig[1], p_new))
             significant = final_sig
         return significant
 
