@@ -14,6 +14,7 @@ class Toolbox:
         temp = os.walk(path)
         for path, dirs, files in temp:
             file_list = files
+        file_list = [f for f in file_list if not f.startswith('.')]
         return file_list
 
     @staticmethod

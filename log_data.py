@@ -103,6 +103,12 @@ class DataProcess:
             group_data.append((self.df.iloc[(group_judge == j).values, column_index]))
         return group_data
 
+    # apply a new value to one group, use to clean unintended data
+    def apply_by_group(self, apply_value, apply_group, column_index):
+        group_judge = self.df.loc[:, "group"]
+        self.df.iloc[(group_judge == apply_group).values, column_index] = apply_value
+        print('All', self.df.columns[column_index], 'in group', apply_group, 'set to', apply_value)
+
     # Re-write this if other analyze method is expected
     def significance_test(self, name, data, correction=False):
         print("-------" + name + " result:")
@@ -133,11 +139,12 @@ class DataProcess:
 
 class TLXProcess(DataProcess):
     # Judge Raw or Weighted automatically, use raw_nasa to use raw only
-    def __init__(self, path, group_names, raw_nasa=False):
-        super().__init__(path, group_names, 'nasa_tlx_output.pdf')
+    def __init__(self, path, group_names, saved_name='nasa_tlx_output.pdf', raw_nasa=False):
+        super().__init__(path, group_names, saved_name)
         self.rs_data = pd.DataFrame()
         self.pw_data = pd.DataFrame()
         self.raw_nasa = raw_nasa
+        self.read_nasa()
 
     # only handle NASA_TLX with or without each-time pairwise
     def read_nasa(self):
@@ -160,7 +167,6 @@ class TLXProcess(DataProcess):
         self.df = self.rs_data
         # get raw result
         print("---NASA TLX raw result---")
-        # self.analyze_nasa(self.rs_data, self.group_names, start=2, plot=True)
         # get weighted result
         if weighted and not self.raw_nasa:
             # read pair result and get weight
@@ -178,7 +184,7 @@ class TLXProcess(DataProcess):
     def read_nasa_raw(self, raw_type):
         assert raw_type == 'pw' or raw_type == 'rs'
         # dict for dataframe
-        data_dict = {"sub_id": [],
+        data_dict = {"id": [],
                      "group": [],
                      "Mental Demand": [],
                      "Physical Demand": [],
@@ -200,7 +206,7 @@ class TLXProcess(DataProcess):
                 for line in csv_txt:
                     words = line.split(",")
                     if words[0] == "SUBJECT ID:":
-                        data_dict["sub_id"].append(int(words[1]))
+                        data_dict["id"].append(int(words[1]))
                         continue
                     if words[0] == "STUDY GROUP:":
                         data_dict["group"].append(int(words[1]))
@@ -230,23 +236,20 @@ class TLXProcess(DataProcess):
         self.significance_test('Overall TLX', average_by_group)
 
 
-class UnityLogHandler:
-    def __init__(self, path, group_names):
-        self.path = path
-        self.group_names = group_names
-        self.df = self.read_jsons()
+# Handle Objective data in Unity Json
+# Assume that file name is like: expName_participantNo._groupNAME_xxx
+class UnityJsonProcess(DataProcess):
+    def __init__(self, path, group_names, saved_name='unity_json_output.pdf'):
+        super().__init__(path, group_names, saved_name)
 
-    def read_jsons(self):
+    def read_jsons(self, where_id=1, where_group=2):
         raw_dict = {'id': [], 'group': []}
         file_list = Toolbox.walk_dir(self.path)
         for file_name in file_list:
-            if file_name == '.DS_Store':
-                continue
             names = file_name.split('.')[0]
             names = names.split('_')
-            # Maybe need to adjust every time (add para in func?)
-            raw_dict['id'].append(int(names[1]))
-            raw_dict['group'].append(int(names[2]))
+            raw_dict['id'].append(int(names[where_id]))
+            raw_dict['group'].append(int(names[where_group]))
             with open(os.path.join(self.path, file_name), 'r') as file:
                 data = json.load(file)
                 # Save the json data to dict
@@ -254,94 +257,29 @@ class UnityLogHandler:
                     if key not in raw_dict:
                         raw_dict[key] = []
                     raw_dict[key].append(float(data[key]))
-        return pd.DataFrame(raw_dict)
+        self.df = pd.DataFrame(raw_dict)
 
-    def analyze_jsons(self, plot_design=(1, 1), start=2, plot=True):
-        group_judge = self.df.loc[:, "group"]  # get group number
-        plt_count = 0
-        max_sig_count = 0
-        if plot:
-            fig, axes = plt.subplots(plot_design[0], plot_design[1], layout="constrained")
-
-        for index_depend in range(start, self.df.shape[1]):
-            group_data = []
-            for j in range(len(self.group_names)):
-                # TODO: Mind here, deal with nan or not
-                group_data.append(self.df.iloc[(group_judge == j).values, index_depend])
-            if plot:
-                bp_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
-                bp = axes.flat[plt_count].boxplot(group_data, patch_artist=True, labels=self.group_names,
-                                                  showfliers=True, showmeans=True)
-                # TODO: Create father class and arrange the plot as func
-                for patch, color in zip(bp["boxes"], bp_colors):
-                    patch.set_facecolor(color)
-                    patch.set_linewidth(0.5)
-                    # patch.set_edgecolor('white')
-                for flier in bp["fliers"]:
-                    flier.set(marker='*')
-                for mean in bp["means"]:
-                    mean.set_markerfacecolor("#86C166")
-                    mean.set_markeredgecolor("#86C166")
-                axes.flat[plt_count].set_title(self.df.columns[index_depend])
-            print("------" + self.df.columns[index_depend] + " result:")
-            # 考虑把这一部分改到main里面
-            if index_depend == self.df.columns.get_loc('recGoodsFind'):
-                p_value = Toolbox.fried_man_test(group_data[1:])[1]
-            elif index_depend == self.df.columns.get_loc('adapt.'):
-                Toolbox.normal_distribute(group_data[1:])
-                p_value = Toolbox.one_anova(group_data[1:])[1]
-            elif index_depend == self.df.columns.get_loc('expTime') or index_depend == self.df.columns.get_loc('freq.'):
-                Toolbox.normal_distribute(group_data)
-                p_value = Toolbox.fried_man_test(group_data)[1]
-            else:
-                p_value = Toolbox.fried_man_test(group_data)[1]
-            if p_value < 0.06:
-                sig_group = Toolbox.wilcoxon_post_hoc(group_data)
-                max_sig_count = max(max_sig_count, len(sig_group))
-                height_add = 0
-                height_basic = axes.flat[plt_count].get_ylim()[1]
-                # axes.flat[plt_count].set_ylim(-5, height_basic + len(sig_group) * 15)
-                # axes.flat[plt_count].set_yticks(np.arange(0, 101, 20))
-                for res in sig_group:
-                    # Get x_axis positions for start and end
-                    x_s = axes.flat[plt_count].get_xticks()[res[0]]
-                    x_e = axes.flat[plt_count].get_xticks()[res[1]]
-                    TLXProcess.add_significance(x_s, x_e, height_basic + height_add, res[2], axes.flat[plt_count])
-                    height_add += 15
-
-            plt_count += 1
-            # one_way_anova(group_data_plt)
-
-        if plot:
-            # Adjust height for all plot to maintain same y-axis
-            # for ax in axes.flat:
-                # ax.set_ylim(-5, 100 + max_sig_count * 15)
-                # ax.set_yticks(np.arange(0, 101, 20))
-            # fig.tight_layout()
-            # plt.savefig("unity_log.pdf", dpi=300, bbox_inches='tight')
-            plt.show()
-            plt.close()
+    def plot_sub_data(self, start=2, fig_design=(2, 3), subplot_titles=None, group_colors=None, flier_mark='o', p_corretion=False):
+        super().plot_sub_data()
 
 
 
 if __name__ == '__main__':
-    """
+    group_names = ["A", "B", "C", "D"]
+    # plot_titles = ['time', 'behavior1', 'behavior2', 'behavior3', 'behavior4', 'behavior5']
+
     path = os.path.expanduser("~/Developer/Exp_Result/finished")
-    tmp = UnityLogHandler(path, ["NoRS", "Arr.", "High.", "Swap"])
-    adjusted_df = tmp.df
+    unity_handler = UnityJsonProcess(path, group_names)
+    unity_handler.read_jsons(where_id=1, where_group=2)
+    unity_handler.apply_by_group(0, 0, unity_handler.df.columns.get_loc('recGoodsFind'))
+    adjusted_df = unity_handler.df
     adjusted_df['freq.'] = adjusted_df['newGoodsFind'] / adjusted_df['expTime']
-    group_judge = adjusted_df.loc[:, "group"]
-    adjusted_df.iloc[(group_judge == 0).values, adjusted_df.columns.get_loc('recGoodsFind')] = 0
     adjusted_df['adapt.'] = adjusted_df['recGoodsFind'] / adjusted_df['newGoodsFind']
-    group_lists = adjusted_df['group'].tolist()
-    for index, group_name in enumerate(group_lists):
-        if group_name == 2:
-            group_lists[index] = 3
-        elif group_name == 3:
-            group_lists[index] = 2
-    adjusted_df['group'] = pd.Series(group_lists)
-    tmp.df = adjusted_df
-    tmp.analyze_jsons((2, 3))
+    unity_handler.df = adjusted_df
+    unity_handler.plot_sub_data(start=2, fig_design=(2, 3),
+                                group_colors=None, p_corretion=False)
+
+
     """
     m_path_NASA = os.path.expanduser("~/Developer/Exp_Result/NASA_TLX")
     plot_titles = ['mental', 'physical', 'temporal', 'performance', 'effort', 'frustration']
@@ -350,4 +288,4 @@ if __name__ == '__main__':
     nasa_handler.nasa_average(start=2)  # Calculate average score and add to dataframe
     nasa_handler.plot_sub_data(start=2, fig_design=(2, 3),
                                subplot_titles=plot_titles, group_colors=None, p_corretion=False)
-
+    """
