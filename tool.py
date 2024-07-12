@@ -52,16 +52,43 @@ class Toolbox:
         return significant
 
     @staticmethod
-    def normal_distribute(data_group, is_list=True):
+    def normal_distribute(data_group, index=-1, is_list=True):
         if is_list:
-            for one_group in data_group:
-                Toolbox.normal_distribute(one_group, False)
+            all_p_values = []
+            print("Wilk: The null hypothesis cannot be rejected when p>0.05:")
+            for g_index, one_group in enumerate(data_group):
+                all_p_values.append(Toolbox.normal_distribute(one_group, index=g_index, is_list=False))
+            if max(all_p_values) < 0.05:
+                return False
+            else:
+                return True
         else:
             stat, p = stats.shapiro(data_group)
-            print('The normal distribution outputs p:', p, 'with stats:', stat)
+            print('Group', index, 'The normal distribution outputs p:', p, 'with stats:', stat)
+            return p
 
     @staticmethod
     def one_anova(data_group):
         stat, p = stats.f_oneway(*data_group)
         print("One-way ANOVA: The null hypothesis cannot be rejected when p>0.05:", p)
         return [stat, p]
+
+    @staticmethod
+    def tukey_post_hoc(data_group):
+        print("Found significant difference, run Tukey's post-hoc test")
+        post_result = stats.tukey_hsd(*data_group)
+        stat_group = post_result.statistic
+        p_values = post_result.pvalue
+        p_group = []
+        print(post_result)
+        for index, value in np.ndenumerate(stat_group):
+            i, j = index
+            if i > j:
+                continue  # Skip the repeated pair
+            p = p_values[i, j]
+            if p <= 0.05:
+                p_group.append((i, j, p_values[i, j]))
+        return p_group
+
+
+

@@ -29,14 +29,14 @@ class DataProcess:
         group_colors: colors for each group
     """
     # TODO: Add fig_design 1x6 and 1x1?
-    def plot_sub_data(self, start=2, fig_design=(2, 3), subplot_titles=None, group_colors=None, flier_mark='o',
-                      same_yaxis=None, p_corretion=False):
+    def plot_sub_data(self, start=2, fig_design=(2, 3), fig_size=(6, 5), subplot_titles=None, group_colors=None, flier_mark='o',
+                      same_yaxis=None, p_correction=False):
         if group_colors is None:
             group_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
         assert self.df["group"].nunique() == self.group_num
         # plt_count = 0
         max_sig_count = 0  # To decide the max height of each subplot
-        fig, axes = plt.subplots(fig_design[0], fig_design[1], layout="constrained")
+        fig, axes = plt.subplots(fig_design[0], fig_design[1], layout="constrained", figsize=fig_size)
         self.plots = axes
         self.fig = fig
         # fig, axes = plt.subplots(1, 6, layout="constrained", figsize=(12, 4)) # for two columns
@@ -74,7 +74,7 @@ class DataProcess:
                 axes.flat[plt_index].set_title(subplot_titles[plt_index])
 
             # Draw significant lines if any
-            sig_group = self.significance_test(self.df.columns[i], group_data, p_corretion)
+            sig_group = self.significance_test(self.df.columns[i], group_data, p_correction)
             if len(sig_group) > 0:
                 max_sig_count = max(max_sig_count, len(sig_group))
                 height_add = 0
@@ -111,7 +111,8 @@ class DataProcess:
 
     def save_fig(self):
         self.fig.savefig(self.saved_name, dpi=300, bbox_inches='tight')
-    # arrange the data by group in using the index of column
+
+    # return the data by group in using the index of column
     def extract_by_group(self, column_index):
         group_judge = self.df.loc[:, "group"]  # get group number for filtering
         group_data = []
@@ -161,7 +162,6 @@ class TLXProcess(DataProcess):
         self.rs_data = pd.DataFrame()
         self.pw_data = pd.DataFrame()
         self.raw_nasa = raw_nasa
-        self.read_nasa()
 
     # only handle NASA_TLX with or without each-time pairwise
     def read_nasa(self):
@@ -276,37 +276,13 @@ class UnityJsonProcess(DataProcess):
                     raw_dict[key].append(float(data[key]))
         self.df = pd.DataFrame(raw_dict)
 
-
-
-
-
-if __name__ == '__main__':
-    group_names = ["A", "B", "C", "D"]
-    # plot_titles = ['time', 'behavior1', 'behavior2', 'behavior3', 'behavior4', 'behavior5']
-
-    # """
-    path = os.path.expanduser("~/Developer/Exp_Result/finished")
-    unity_handler = UnityJsonProcess(path, group_names)
-    unity_handler.read_jsons(where_id=1, where_group=2)
-    unity_handler.apply_by_group(0, 0, unity_handler.df.columns.get_loc('recGoodsFind'))
-    adjusted_df = unity_handler.df
-    adjusted_df['freq.'] = adjusted_df['newGoodsFind'] / adjusted_df['expTime']
-    adjusted_df['adapt.'] = adjusted_df['recGoodsFind'] / adjusted_df['newGoodsFind']
-    unity_handler.df = adjusted_df
-    unity_handler.plot_sub_data(start=2, fig_design=(2, 3),
-                                group_colors=None, p_corretion=False)
-    unity_handler.save_fig()
-    # """
-
-    """
-    m_path_NASA = os.path.expanduser("~/Developer/Exp_Result/NASA_TLX")
-    plot_titles = ['mental', 'physical', 'temporal', 'performance', 'effort', 'frustration']
-    nasa_handler = TLXProcess(m_path_NASA, ["A", "B", "C", "D"], raw_nasa=False)
-    nasa_handler.read_nasa()
-    nasa_handler.nasa_average(start=2)  # Calculate average score and add to dataframe
-    nasa_handler.plot_sub_data(start=2, fig_design=(2, 3),
-                               subplot_titles=plot_titles, group_colors=None, same_yaxis=np.arange(0, 101, 20), p_corretion=False)
-    nasa_handler.save_fig()
-    # nasa_handler.set_sub_yticks(sub_index=0, y_range=np.arange(0, 101, 20))
-    # nasa_handler.set_sub_yticks(sub_index=5, y_range=np.arange(0, 101, 20))
-    """
+    def significance_test(self, name, data, correction=False):
+        print("-------Verifying Normal Distribution for " + name)
+        if Toolbox.normal_distribute(data):
+            p_value = Toolbox.one_anova(data)[1]
+            sig_group = []
+            if p_value < 0.06:
+                sig_group = Toolbox.tukey_post_hoc(data)
+            return sig_group
+        else:
+            return super().significance_test(name, data, correction)  # You may want other significant test
