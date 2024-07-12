@@ -17,6 +17,7 @@ class DataProcess:
         self.df = pd.DataFrame()
 
         self.plots = []  # record all plots in matplot for customization
+        self.fig = plt.figure()
 
     # Assume that file name is like: expName_groupNAME_participantNo._xxx
     # def read_data(self, where_group=1, where_user=2):
@@ -28,7 +29,8 @@ class DataProcess:
         group_colors: colors for each group
     """
     # TODO: Add fig_design 1x6 and 1x1?
-    def plot_sub_data(self, start=2, fig_design=(2, 3), subplot_titles=None, group_colors=None, flier_mark='o', p_corretion=False):
+    def plot_sub_data(self, start=2, fig_design=(2, 3), subplot_titles=None, group_colors=None, flier_mark='o',
+                      same_yaxis=None, p_corretion=False):
         if group_colors is None:
             group_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
         assert self.df["group"].nunique() == self.group_num
@@ -36,6 +38,7 @@ class DataProcess:
         max_sig_count = 0  # To decide the max height of each subplot
         fig, axes = plt.subplots(fig_design[0], fig_design[1], layout="constrained")
         self.plots = axes
+        self.fig = fig
         # fig, axes = plt.subplots(1, 6, layout="constrained", figsize=(12, 4)) # for two columns
         if fig_design[0] * fig_design[1] < self.df.shape[1] - start:
             end = fig_design[0] * fig_design[1] + start
@@ -75,25 +78,39 @@ class DataProcess:
             if len(sig_group) > 0:
                 max_sig_count = max(max_sig_count, len(sig_group))
                 height_add = 0
-                height_basic = axes.flat[plt_index].get_ylim()[1]
-                axes.flat[plt_index].set_ylim(-5, height_basic + len(sig_group) * 15)
-                axes.flat[plt_index].set_yticks(np.arange(0, 101, 20))
+                height_min, height_basic = axes.flat[plt_index].get_ylim()
+                height_diff = (height_basic - height_min) / 6
+                axes.flat[plt_index].set_ylim(height_min, height_basic + len(sig_group) * height_diff)
+                # axes.flat[plt_index].set_yticks(np.arange(0, 101, 20))
                 for res in sig_group:
                     # Get x_axis positions for start and end
                     x_s = axes.flat[plt_index].get_xticks()[res[0]]
                     x_e = axes.flat[plt_index].get_xticks()[res[1]]
-                    self.add_significance(x_s, x_e, height_basic + height_add, res[2], axes.flat[plt_index])
-                    height_add += 15
+                    self.add_significance(x_s, x_e, height_basic + height_add, res[2], axes.flat[plt_index], height_diff / 4)
+                    height_add += height_diff
 
         # Adjust height for all plot to maintain same y-axis
-        for ax in axes.flat:
-            ax.set_ylim(-5, 100 + max_sig_count * 15)
-            ax.set_yticks(np.arange(0, 101, 20))
+        if same_yaxis is not None:
+            height_min, height_max = 0, 0
+            for ax in axes.flat:
+                height_min = min(height_min, ax.get_ylim()[0])
+                height_max = max(height_max, ax.get_ylim()[1])
+            for ax in axes.flat:
+                ax.set_ylim(height_min, height_max)
+                ax.set_yticks(same_yaxis)
         # fig.tight_layout()
-        plt.savefig(self.saved_name, dpi=300, bbox_inches='tight')
-        plt.show()
-        plt.close()
+        # plt.savefig(self.saved_name, dpi=300, bbox_inches='tight')
+        self.fig.show()
+        # plt.close()
 
+    def set_sub_yticks(self, sub_index, y_range):
+        self.plots.flat[sub_index].set_yticks(y_range)
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        self.fig.show()
+
+    def save_fig(self):
+        self.fig.savefig(self.saved_name, dpi=300, bbox_inches='tight')
     # arrange the data by group in using the index of column
     def extract_by_group(self, column_index):
         group_judge = self.df.loc[:, "group"]  # get group number for filtering
@@ -121,9 +138,9 @@ class DataProcess:
         return sig_group
 
     @staticmethod
-    def add_significance(start, end, height, p_value, ax):
+    def add_significance(start, end, height, p_value, ax, scale):
         x = [start, start, end, end]
-        y = [height, height + 1, height + 1, height]
+        y = [height, height + scale, height + scale, height]
         ax.plot(x, y, color="k", linewidth=1.5)
 
         sign = ""
@@ -134,7 +151,7 @@ class DataProcess:
         elif p_value <= 0.05:
             sign = "*"
 
-        ax.text((start + end) / 2, height + 1, sign, ha="center", va="bottom")
+        ax.text((start + end) / 2, height + scale, sign, ha="center", va="bottom")
 
 
 class TLXProcess(DataProcess):
@@ -259,8 +276,7 @@ class UnityJsonProcess(DataProcess):
                     raw_dict[key].append(float(data[key]))
         self.df = pd.DataFrame(raw_dict)
 
-    def plot_sub_data(self, start=2, fig_design=(2, 3), subplot_titles=None, group_colors=None, flier_mark='o', p_corretion=False):
-        super().plot_sub_data()
+
 
 
 
@@ -268,6 +284,7 @@ if __name__ == '__main__':
     group_names = ["A", "B", "C", "D"]
     # plot_titles = ['time', 'behavior1', 'behavior2', 'behavior3', 'behavior4', 'behavior5']
 
+    # """
     path = os.path.expanduser("~/Developer/Exp_Result/finished")
     unity_handler = UnityJsonProcess(path, group_names)
     unity_handler.read_jsons(where_id=1, where_group=2)
@@ -278,7 +295,8 @@ if __name__ == '__main__':
     unity_handler.df = adjusted_df
     unity_handler.plot_sub_data(start=2, fig_design=(2, 3),
                                 group_colors=None, p_corretion=False)
-
+    unity_handler.save_fig()
+    # """
 
     """
     m_path_NASA = os.path.expanduser("~/Developer/Exp_Result/NASA_TLX")
@@ -287,5 +305,8 @@ if __name__ == '__main__':
     nasa_handler.read_nasa()
     nasa_handler.nasa_average(start=2)  # Calculate average score and add to dataframe
     nasa_handler.plot_sub_data(start=2, fig_design=(2, 3),
-                               subplot_titles=plot_titles, group_colors=None, p_corretion=False)
+                               subplot_titles=plot_titles, group_colors=None, same_yaxis=np.arange(0, 101, 20), p_corretion=False)
+    nasa_handler.save_fig()
+    # nasa_handler.set_sub_yticks(sub_index=0, y_range=np.arange(0, 101, 20))
+    # nasa_handler.set_sub_yticks(sub_index=5, y_range=np.arange(0, 101, 20))
     """
