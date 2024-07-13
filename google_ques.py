@@ -1,12 +1,10 @@
 import os
 import re
-
 import matplotlib.pyplot as plt
 import pandas as pd
 from tool import Toolbox
 import numpy as np
 from log_data import DataProcess
-from collections import Counter
 
 
 # The current class mainly support within-subject study using one ques
@@ -30,7 +28,6 @@ class GoogleQuesProcess(DataProcess):
             data.to_csv('abbr_google_ques.csv', index=False)
 
     def plot_bar(self, start, amount, mean_ques=True, subplot_titles=None, fig_size=None, p_correction=False):
-        # self.mean = self.df.iloc[:, start:start+amount*self.group_num].mean(numeric_only=True)
         res_mean = [[] for _ in range(self.group_num)]
         res_std = [[] for _ in range(self.group_num)]
         for i in range(self.group_num):
@@ -43,7 +40,8 @@ class GoogleQuesProcess(DataProcess):
                 res_std[i].append(averages.std())
 
         fig, ax = plt.subplots(figsize=fig_size)
-
+        self.fig = fig
+        self.plots = ax
         plt.grid(axis='y', alpha=0.3)
         ax.set_axisbelow(True)
         ind = np.arange(len(ques_index))
@@ -59,7 +57,7 @@ class GoogleQuesProcess(DataProcess):
         ax.set_xticks(ind + width / 2 * (self.group_num - 1), labels=subplot_titles)
         ax.legend()
         ax.autoscale_view()
-        plt.show()
+        self.fig.show()
 
     # Return type_dict, where columns head name or full name as key, the full name as value
     def split_ques_type(self, start, amount, use_head=True):
@@ -90,11 +88,11 @@ if __name__ == '__main__':
     onlyDrawMeanForQues = False
     path = os.path.expanduser("~/Developer/Exp_Result/VR Rec Questionnaire.csv")
 
-
     google_handler = GoogleQuesProcess(path, ["Group A", "Group B", "Group C"])
     google_handler.read_clean_column_names(' - ')
     google_handler.df = google_handler.df.rename(columns={'TR2': 'IT1'})  # Adjust some unintended columns
     google_handler.plot_bar(validQuesStartFrom, howMuchQuesPerGroup, mean_ques=onlyDrawMeanForQues, fig_size=(12, 4))
+    google_handler.save_fig()
 
 
 
