@@ -13,7 +13,6 @@ class DataProcess:
         self.group_names = group_names  # experimental groups
         self.saved_name = saved_name
         self.group_num = len(group_names)
-        self.file_names = Toolbox.walk_dir(self.path)  # record all data files
         self.df = pd.DataFrame()
 
         self.plots = []  # record all plots in matplot for customization
@@ -53,8 +52,6 @@ class DataProcess:
             # Subplot Setting
             # supported color
             # bp_colors = ["#5184B2", "#AAD4F8", "#F1A7B5", "#D55276", "#F2F5FA"]
-            if group_colors is None:
-                group_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
             bp = axes.flat[plt_index].boxplot(group_data, patch_artist=True, labels=self.group_names,
                                               showfliers=True, showmeans=True)
 
@@ -159,6 +156,7 @@ class TLXProcess(DataProcess):
     # Judge Raw or Weighted automatically, use raw_nasa to use raw only
     def __init__(self, path, group_names, saved_name='nasa_tlx_output.pdf', raw_nasa=False):
         super().__init__(path, group_names, saved_name)
+        self.file_names = Toolbox.walk_dir(self.path)  # record all data files
         self.rs_data = pd.DataFrame()
         self.pw_data = pd.DataFrame()
         self.raw_nasa = raw_nasa
@@ -246,7 +244,6 @@ class TLXProcess(DataProcess):
     def plot_sub_data(self, **kwargs):
         super().plot_sub_data(**kwargs)
 
-    # TODO: Add plot option
     def nasa_average(self, start=2):
         self.df['average'] = self.df.iloc[:, start:start+6].mean(axis=1)
         average_by_group = self.extract_by_group(self.df.columns.get_loc('average'))
@@ -258,6 +255,7 @@ class TLXProcess(DataProcess):
 class UnityJsonProcess(DataProcess):
     def __init__(self, path, group_names, saved_name='unity_json_output.pdf'):
         super().__init__(path, group_names, saved_name)
+        self.file_names = Toolbox.walk_dir(self.path)  # record all data files
 
     def read_jsons(self, where_id=1, where_group=2):
         raw_dict = {'id': [], 'group': []}
