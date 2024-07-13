@@ -29,7 +29,7 @@ class GoogleQuesProcess(DataProcess):
         if saved:
             data.to_csv('abbr_google_ques.csv', index=False)
 
-    def plot_bar(self, start, amount, mean_ques=True, subplot_titles=None, group_colors=None, fig_size=None, p_correction=False):
+    def plot_bar(self, start, amount, mean_ques=True, subplot_titles=None, fig_size=None, p_correction=False):
         # self.mean = self.df.iloc[:, start:start+amount*self.group_num].mean(numeric_only=True)
         res_mean = [[] for _ in range(self.group_num)]
         res_std = [[] for _ in range(self.group_num)]
@@ -44,18 +44,15 @@ class GoogleQuesProcess(DataProcess):
 
         fig, ax = plt.subplots(figsize=fig_size)
 
-        plt.grid(axis='y')
+        plt.grid(axis='y', alpha=0.3)
         ax.set_axisbelow(True)
         ind = np.arange(len(ques_index))
         width = 0.81 / self.group_num
 
-        if group_colors is None:
-            group_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
-
         for index, (m, s) in enumerate(zip(res_mean, res_std)):
             ax.bar(ind+index*width, m, width, bottom=0, yerr=s,
-                   color=group_colors[index], label=self.group_names[index],
-                   error_kw=dict(ecolor='black', lw=1, capsize=2, capthick=1))
+                   color=self.group_colors[index], label=self.group_names[index],
+                   error_kw=dict(ecolor='gray', lw=1, capsize=2, capthick=1))
 
         if subplot_titles is None:
             subplot_titles = ques_index.keys()
@@ -90,11 +87,14 @@ class GoogleQuesProcess(DataProcess):
 if __name__ == '__main__':
     howMuchQuesPerGroup = 15
     validQuesStartFrom = 13
+    onlyDrawMeanForQues = False
     path = os.path.expanduser("~/Developer/Exp_Result/VR Rec Questionnaire.csv")
+
+
     google_handler = GoogleQuesProcess(path, ["Group A", "Group B", "Group C"])
     google_handler.read_clean_column_names(' - ')
     google_handler.df = google_handler.df.rename(columns={'TR2': 'IT1'})  # Adjust some unintended columns
-    google_handler.plot_bar(validQuesStartFrom, howMuchQuesPerGroup, mean_ques=False, fig_size=(12, 4))
+    google_handler.plot_bar(validQuesStartFrom, howMuchQuesPerGroup, mean_ques=onlyDrawMeanForQues, fig_size=(12, 4))
 
 
 

@@ -8,7 +8,7 @@ import warnings
 
 
 class DataProcess:
-    def __init__(self, path, group_names, saved_name='output.pdf'):
+    def __init__(self, path, group_names, saved_name='output.pdf', group_colors=None):
         self.path = path  # path to the document includes data file(s)
         self.group_names = group_names  # experimental groups
         self.saved_name = saved_name
@@ -17,6 +17,9 @@ class DataProcess:
 
         self.plots = []  # record all plots in matplot for customization
         self.fig = plt.figure()
+        if group_colors is None:
+            group_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
+        self.group_colors = group_colors
 
     # Assume that file name is like: expName_groupNAME_participantNo._xxx
     # def read_data(self, where_group=1, where_user=2):
@@ -28,10 +31,8 @@ class DataProcess:
         group_colors: colors for each group
     """
     # TODO: Add fig_design 1x6 and 1x1?
-    def plot_sub_data(self, start=2, fig_design=(2, 3), fig_size=(6, 5), subplot_titles=None, group_colors=None, flier_mark='o',
+    def plot_sub_data(self, start=2, fig_design=(2, 3), fig_size=(6, 5), subplot_titles=None, flier_mark='o',
                       same_yaxis=None, p_correction=False):
-        if group_colors is None:
-            group_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
         assert self.df["group"].nunique() == self.group_num
         # plt_count = 0
         max_sig_count = 0  # To decide the max height of each subplot
@@ -55,7 +56,7 @@ class DataProcess:
             bp = axes.flat[plt_index].boxplot(group_data, patch_artist=True, labels=self.group_names,
                                               showfliers=True, showmeans=True)
 
-            for patch, color in zip(bp["boxes"], group_colors):
+            for patch, color in zip(bp["boxes"], self.group_colors):
                 patch.set_facecolor(color)
                 patch.set_linewidth(0.5)
                 # patch.set_edgecolor('white')
