@@ -27,9 +27,11 @@ class GoogleQuesProcess(DataProcess):
         if saved:
             data.to_csv('abbr_google_ques.csv', index=False)
 
+    # this plot assumes that the ques used N point likert scale
     def plot_bar(self, start, amount, mean_ques=True, subplot_titles=None, fig_size=None, p_correction=False):
-        res_mean = [[] for _ in range(self.group_num)]
-        res_std = [[] for _ in range(self.group_num)]
+        res_mean = [[] for _ in range(self.group_num)]  # the mean of each ques
+        res_std = [[] for _ in range(self.group_num)]  # the std of each ques
+        res_mean_per_users = [[] for _ in range(self.group_num)]  # the mean of each participant
         for i in range(self.group_num):
             # use the grouped index to calculate the mean and std
             ques_index = self.split_ques_type(start+amount*i, amount, use_head=mean_ques)
@@ -38,6 +40,7 @@ class GoogleQuesProcess(DataProcess):
                 averages = selected_group.loc[:, ques_index[_type]].mean(axis=1)
                 res_mean[i].append(averages.mean())
                 res_std[i].append(averages.std())
+                res_mean_per_users[i].append(averages.tolist())  # saved the original averages for significance ana.
 
         fig, ax = plt.subplots(figsize=fig_size)
         self.fig = fig
@@ -55,6 +58,23 @@ class GoogleQuesProcess(DataProcess):
         if subplot_titles is None:
             subplot_titles = ques_index.keys()
         ax.set_xticks(ind + width / 2 * (self.group_num - 1), labels=subplot_titles)
+        height_min, height_basic = ax.get_ylim()
+        ax.set_yticks(np.arange(height_min, height_basic, 1))
+        height_basic -= 0.3  # Typically the max height will higher than max score in ques?
+        height_diff = 0.6
+        for index, _type in enumerate(ques_index.keys()):
+            dependent_data = []
+            for group in res_mean_per_users:
+                dependent_data.append(group[index])
+            sig_group = self.significance_test(_type, dependent_data, p_correction)
+            height_add = 0
+            if len(sig_group) > 0:
+                for res in sig_group:
+                    x_s = ax.get_xticks()[index] + (res[0]-1) * width
+                    x_e = ax.get_xticks()[index] + (res[1]-1) * width
+                    self.add_significance(x_s, x_e, height_basic + height_add, res[2], ax,
+                                          height_diff / 8)
+                    height_add += height_diff
         ax.legend()
         ax.autoscale_view()
         self.fig.show()
@@ -76,12 +96,6 @@ class GoogleQuesProcess(DataProcess):
         return type_dict
 
 
-
-
-
-
-
-
 if __name__ == '__main__':
     howMuchQuesPerGroup = 15
     validQuesStartFrom = 13
@@ -91,7 +105,7 @@ if __name__ == '__main__':
     google_handler = GoogleQuesProcess(path, ["Group A", "Group B", "Group C"])
     google_handler.read_clean_column_names(' - ')
     google_handler.df = google_handler.df.rename(columns={'TR2': 'IT1'})  # Adjust some unintended columns
-    google_handler.plot_bar(validQuesStartFrom, howMuchQuesPerGroup, mean_ques=onlyDrawMeanForQues, fig_size=(12, 4))
+    google_handler.plot_bar(validQuesStartFrom, howMuchQuesPerGroup, mean_ques=onlyDrawMeanForQues, fig_size=(8, 4))
     google_handler.save_fig()
 
 
