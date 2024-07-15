@@ -26,18 +26,18 @@ if __name__ == "__main__":
     nasa_handler.nasa_average(start=2)  # Calculate average score and add to dataframe
     nasa_handler.plot_sub_data(start=2, fig_design=(2, 3), fig_size=(6, 5), subplot_titles=plot_titles,
                                same_yaxis=np.arange(0, 101, 20), p_correction=False)
-    nasa_handler.save_fig()  # Always to save Figure after all adjustments has conducted
+    nasa_handler.save_fig()
 
     howMuchQuesPerGroup = 15
     validQuesStartFrom = 13
     onlyDrawMeanForQues = True
     group_names = ["A", "B", "C"]
-    path = os.path.expanduser("~/Developer/Exp_Result/VR Rec Questionnaire.csv")  # Path to the csv
+    path = os.path.expanduser("~/Developer/Exp_Result/Questionnaire.csv")  # Path to the csv
 
     google_handler = GoogleQuesProcess(path, group_names)
     google_handler.read_clean_column_names(' - ')
-    google_handler.df = google_handler.df.rename(columns={'TR2': 'IT1'})  # Adjust some unintended columns
-    print('Mean age:', google_handler.df.loc['BC2'].mean(), 'Std:', google_handler.df.loc['BC2'].std())
+    # google_handler.df = google_handler.df.rename(columns={'TR2': 'IT1'})  # Adjust some unintended columns
+    print('Mean age:', google_handler.df['BC2'].mean(), 'Std:', google_handler.df['BC2'].std())
     google_handler.plot_bar(validQuesStartFrom, howMuchQuesPerGroup, mean_ques=onlyDrawMeanForQues, fig_size=(6, 4),
                             draw_mean=True, p_correction=False)
     google_handler.save_fig()

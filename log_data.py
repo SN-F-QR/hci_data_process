@@ -24,15 +24,19 @@ class DataProcess:
     # Assume that file name is like: expName_groupNAME_participantNo._xxx
     # def read_data(self, where_group=1, where_user=2):
 
-    """
-    Using subplots to plot the dataframe
-        Start: the first column index of data
-        fig_design: (2,3) => 2 x 3 subplot design
-        group_colors: colors for each group
-    """
-    # TODO: Add fig_design 1x6 and 1x1?
     def plot_sub_data(self, start=2, fig_design=(2, 3), fig_size=(6, 5), subplot_titles=None, flier_mark='o',
                       same_yaxis=None, p_correction=False):
+        """
+        Use subplots to plot the data
+
+        :param start: the first column index of data
+        :param fig_design: (2,3) => 2 x 3 subplot design
+        :param fig_size: the output size of plot
+        :param subplot_titles: title for each subplot
+        :param flier_mark: mark for outlier
+        :param same_yaxis: if provided, all subplots use the provided y-axis
+        :param p_correction: use Bonferroni-Holm correction in post-hoc analyze
+        """
         assert self.df["group"].nunique() == self.group_num
         # plt_count = 0
         max_sig_count = 0  # To decide the max height of each subplot
@@ -138,6 +142,16 @@ class DataProcess:
 
     @staticmethod
     def add_significance(start, end, height, p_value, ax, scale):
+        """
+        Draw significant line and sign in plot
+
+        :param start: left x position in plot
+        :param end: right x position in plot
+        :param height: y position of line
+        :param p_value: p value of significant test
+        :param ax: axis of plot
+        :param scale: short line in significant line and the height of significant signs
+        """
         x = [start, start, end, end]
         y = [height, height + scale, height + scale, height]
         ax.plot(x, y, color="k", linewidth=1.5)
@@ -259,6 +273,12 @@ class UnityJsonProcess(DataProcess):
         self.file_names = Toolbox.walk_dir(self.path)  # record all data files
 
     def read_jsons(self, where_id=1, where_group=2):
+        """
+        Read the json files from Unity
+
+        :param where_id: the position of participant ID in file name
+        :param where_group: the position of experiment group in file name
+        """
         raw_dict = {'id': [], 'group': []}
         file_list = Toolbox.walk_dir(self.path)
         for file_name in file_list:

@@ -29,6 +29,17 @@ class GoogleQuesProcess(DataProcess):
 
     # this plot assumes that the ques used N point likert scale
     def plot_bar(self, start, amount, mean_ques=True, subplot_titles=None, fig_size=None, draw_mean=True, p_correction=False):
+        """
+        Draw a bar plot for questionnaire
+
+        :param start: the first column index of data
+        :param amount: the number of ques in one group
+        :param fig_size: the output size of plot
+        :param subplot_titles: title for each subplot
+        :param mean_ques: if True, will combine all ques and calculate a mean value for the same questionnaire
+        :param draw_mean: Draw the mean text on the top of each bar
+        :param p_correction: use Bonferroni-Holm correction in post-hoc analyze
+        """
         res_mean = [[] for _ in range(self.group_num)]  # the mean of each ques
         res_std = [[] for _ in range(self.group_num)]  # the std of each ques
         res_mean_per_users = [[] for _ in range(self.group_num)]  # the mean of each participant
