@@ -28,7 +28,7 @@ class GoogleQuesProcess(DataProcess):
             data.to_csv('abbr_google_ques.csv', index=False)
 
     # this plot assumes that the ques used N point likert scale
-    def plot_bar(self, start, amount, mean_ques=True, subplot_titles=None, fig_size=None, p_correction=False):
+    def plot_bar(self, start, amount, mean_ques=True, subplot_titles=None, fig_size=None, draw_mean=True, p_correction=False):
         res_mean = [[] for _ in range(self.group_num)]  # the mean of each ques
         res_std = [[] for _ in range(self.group_num)]  # the std of each ques
         res_mean_per_users = [[] for _ in range(self.group_num)]  # the mean of each participant
@@ -54,9 +54,10 @@ class GoogleQuesProcess(DataProcess):
             ax.bar(ind+index*width, m, width, bottom=0, yerr=s,
                    color=self.group_colors[index], label=self.group_names[index],
                    error_kw=dict(ecolor='gray', lw=1, capsize=2, capthick=1))
-            # ax.bar_label(bar, fmt='%.2f', label_type='edge', fontsize='small')
-            for x, y in zip(ind, m):
-                ax.text(x+index*width, y, f'{y:.2f}', ha='center', va='bottom', fontsize=6)
+            # Draw mean on the top of bar
+            if draw_mean:
+                for x, y in zip(ind, m):
+                    ax.text(x+index*width, y, f'{y:.2f}', ha='center', va='bottom', fontsize=6)
 
         if subplot_titles is None:
             subplot_titles = ques_index.keys()

@@ -155,12 +155,12 @@ class DataProcess:
 
 class TLXProcess(DataProcess):
     # Judge Raw or Weighted automatically, use raw_nasa to use raw only
-    def __init__(self, path, group_names, saved_name='nasa_tlx_output.pdf', raw_nasa=False):
+    def __init__(self, path, group_names, saved_name='nasa_tlx_output.pdf', raw_nasa_only=False):
         super().__init__(path, group_names, saved_name)
         self.file_names = Toolbox.walk_dir(self.path)  # record all data files
         self.rs_data = pd.DataFrame()
         self.pw_data = pd.DataFrame()
-        self.raw_nasa = raw_nasa
+        self.raw_nasa = raw_nasa_only
 
     # only handle NASA_TLX with or without each-time pairwise
     def read_nasa(self):
