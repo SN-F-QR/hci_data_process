@@ -9,6 +9,8 @@ Currently supported data types include:
 - CSV files exported from the mobile NASA-TLX app
 - Within-subject data from a single Google Forms survey
 
+*The ques in Google Forms should include abbr. on the head, like "BC1 - Name"*
+
 Supported visualizations include:
 - Box plots
 - Bar plots
