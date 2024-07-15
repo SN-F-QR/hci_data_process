@@ -54,10 +54,15 @@ class GoogleQuesProcess(DataProcess):
             ax.bar(ind+index*width, m, width, bottom=0, yerr=s,
                    color=self.group_colors[index], label=self.group_names[index],
                    error_kw=dict(ecolor='gray', lw=1, capsize=2, capthick=1))
+            # ax.bar_label(bar, fmt='%.2f', label_type='edge', fontsize='small')
+            for x, y in zip(ind, m):
+                ax.text(x+index*width, y, f'{y:.2f}', ha='center', va='bottom', fontsize=6)
 
         if subplot_titles is None:
             subplot_titles = ques_index.keys()
         ax.set_xticks(ind + width / 2 * (self.group_num - 1), labels=subplot_titles)
+
+        # Add significant signs
         height_min, height_basic = ax.get_ylim()
         ax.set_yticks(np.arange(height_min, height_basic, 1))
         height_basic -= 0.3  # Typically the max height will higher than max score in ques?
@@ -73,7 +78,7 @@ class GoogleQuesProcess(DataProcess):
                     x_s = ax.get_xticks()[index] + (res[0]-1) * width
                     x_e = ax.get_xticks()[index] + (res[1]-1) * width
                     self.add_significance(x_s, x_e, height_basic + height_add, res[2], ax,
-                                          height_diff / 8)
+                                          height_diff / 4)
                     height_add += height_diff
         ax.legend()
         ax.autoscale_view()
@@ -95,20 +100,4 @@ class GoogleQuesProcess(DataProcess):
                 type_dict[_type].append(name)
         return type_dict
 
-
-if __name__ == '__main__':
-    howMuchQuesPerGroup = 15
-    validQuesStartFrom = 13
-    onlyDrawMeanForQues = False
-    path = os.path.expanduser("~/Developer/Exp_Result/VR Rec Questionnaire.csv")
-
-    google_handler = GoogleQuesProcess(path, ["Group A", "Group B", "Group C"])
-    google_handler.read_clean_column_names(' - ')
-    google_handler.df = google_handler.df.rename(columns={'TR2': 'IT1'})  # Adjust some unintended columns
-    google_handler.plot_bar(validQuesStartFrom, howMuchQuesPerGroup, mean_ques=onlyDrawMeanForQues, fig_size=(8, 4))
-    google_handler.save_fig()
-
-
-
-    print('1')
 
