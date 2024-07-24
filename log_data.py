@@ -9,8 +9,16 @@ import warnings
 
 class DataProcess:
     def __init__(self, path, group_names, saved_name='output.pdf', group_colors=None):
-        self.path = path  # path to the document includes data file(s)
-        self.group_names = group_names  # experimental groups
+        """
+        Initialize class
+
+        :param path: path to the document includes data file(s)
+        :param group_names: the names of experimental groups
+        :param saved_name: the name for saved plot using pdf format
+        :param group_colors: the colors related to each experimental groups, based on hexadecimal
+        """
+        self.path = path
+        self.group_names = group_names
         self.saved_name = saved_name
         self.group_num = len(group_names)
         self.df = pd.DataFrame()
@@ -27,15 +35,16 @@ class DataProcess:
     def plot_sub_data(self, start=2, fig_design=(2, 3), fig_size=(6, 5), subplot_titles=None, flier_mark='o',
                       same_yaxis=None, p_correction=False):
         """
-        Use subplots to plot the data
+        Use subplots to show box plot of the scores.
+        Will update self.fig and self.plots
 
-        :param start: the first column index of data
-        :param fig_design: (2,3) => 2 x 3 subplot design
-        :param fig_size: the output size of plot
-        :param subplot_titles: title for each subplot
-        :param flier_mark: mark for outlier
-        :param same_yaxis: if provided, all subplots use the provided y-axis
-        :param p_correction: use Bonferroni-Holm correction in post-hoc analyze
+        :param start: the first column index of useful data
+        :param fig_design: should be tuple, like (2,3) => 2 x 3 subplot design
+        :param fig_size: should be tuple, the output size (in inch) of plot
+        :param subplot_titles: titles for each subplot
+        :param flier_mark: string mark for outlier, same with matplot
+        :param same_yaxis: if true, all subplots use the same provided y-axis
+        :param p_correction: if true, use Bonferroni-Holm correction in post-hoc analyze
         """
         assert self.df["group"].nunique() == self.group_num
         # plt_count = 0
@@ -168,16 +177,22 @@ class DataProcess:
 
 
 class TLXProcess(DataProcess):
-    # Judge Raw or Weighted automatically, use raw_nasa to use raw only
     def __init__(self, path, group_names, saved_name='nasa_tlx_output.pdf', raw_nasa_only=False):
+        """
+        :param raw_nasa_only: if true, will only load files of raw nasa-tlx 
+        """
         super().__init__(path, group_names, saved_name)
         self.file_names = Toolbox.walk_dir(self.path)  # record all data files
         self.rs_data = pd.DataFrame()
         self.pw_data = pd.DataFrame()
         self.raw_nasa = raw_nasa_only
 
-    # only handle NASA_TLX with or without each-time pairwise
     def read_nasa(self):
+        """
+        Read and load NASA-TLX files, basically judge Raw or Weighted automatically
+        Only handle NASA_TLX with or without each-time pairwise
+        Return result in self.rs_data and self.pw_data
+        """
         pw_file = []
         rs_file = []
         for name in self.file_names:
@@ -212,6 +227,11 @@ class TLXProcess(DataProcess):
         # return 6*2 results
 
     def read_nasa_raw(self, raw_type):
+        """
+        Load raw score files or pairwise score files
+        :param raw_type: string, must be 'pw' to load pairwise score or 'rs' to load raw score
+        :return raw_frame: dataframe of scores including participants id / group / scores
+        """
         assert raw_type == 'pw' or raw_type == 'rs'
         # dict for dataframe
         data_dict = {"id": [],
@@ -260,6 +280,11 @@ class TLXProcess(DataProcess):
         super().plot_sub_data(**kwargs)
 
     def nasa_average(self, start=2):
+        """
+        Calculate the overall NASA-TLX scores, typically ignoring plot
+        And provide significant tests
+        :param start: the first column index of useful data
+        """
         self.df['average'] = self.df.iloc[:, start:start+6].mean(axis=1)
         average_by_group = self.extract_by_group(self.df.columns.get_loc('average'))
         self.significance_test('Overall TLX', average_by_group)
@@ -275,7 +300,7 @@ class UnityJsonProcess(DataProcess):
     def read_jsons(self, where_id=1, where_group=2):
         """
         Read the json files from Unity
-
+        Return dataframe by revising self.df
         :param where_id: the position of participant ID in file name
         :param where_group: the position of experiment group in file name
         """
@@ -296,6 +321,14 @@ class UnityJsonProcess(DataProcess):
         self.df = pd.DataFrame(raw_dict)
 
     def significance_test(self, name, data, correction=False):
+        """
+        Deploy significant test by first validating normal distribution
+        If normal, use ANOVA and tukey;
+
+        :param name: the name of tested type of objective data in json
+        :param data: the list contains objective data
+        :param correction: if true, use post-test correction
+        """
         print("-------Verifying Normal Distribution for " + name)
         if Toolbox.normal_distribute(data):
             p_value = Toolbox.one_anova(data)[1]
