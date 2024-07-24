@@ -123,8 +123,13 @@ class DataProcess:
     def save_fig(self):
         self.fig.savefig(self.saved_name, dpi=300, bbox_inches='tight')
 
-    # return the data by group in using the index of column
     def extract_by_group(self, column_index):
+        """
+        Return the data arranged by group in the index of column
+        The group name must be Int from 0
+        :param column_index: the column index for dependent variables
+        :return group_data: [[group1], [group2], ...]
+        """
         group_judge = self.df.loc[:, "group"]  # get group number for filtering
         group_data = []
         for j in range(self.group_num):
@@ -140,6 +145,14 @@ class DataProcess:
 
     # Re-write this if other analyze method is expected
     def significance_test(self, name, data, correction=False):
+        """
+        Deploy significant test using friedman and wilcoxon post test
+
+        :param name: the name of tested type of objective data in json
+        :param data: the list contains objective data arranged by groups, 3 groups like [[], [], []]
+        :param correction: same with p_correction in plot_sub_data
+        :return sig_group: tuple (i,j,p), where i/j are the two groups with significant differece of p value
+        """
         print("-------" + name + " result:")
         p_value = Toolbox.fried_man_test(data)[1]
         sig_group = []
@@ -323,11 +336,7 @@ class UnityJsonProcess(DataProcess):
     def significance_test(self, name, data, correction=False):
         """
         Deploy significant test by first validating normal distribution
-        If normal, use ANOVA and tukey;
-
-        :param name: the name of tested type of objective data in json
-        :param data: the list contains objective data
-        :param correction: if true, use post-test correction
+        If normal, use ANOVA and tukey post test
         """
         print("-------Verifying Normal Distribution for " + name)
         if Toolbox.normal_distribute(data):

@@ -10,12 +10,22 @@ from log_data import DataProcess
 # The current class mainly support within-subject study using one ques
 class GoogleQuesProcess(DataProcess):
     def __init__(self, path, group_names, saved_name='google_ques_output.pdf'):
-        super().__init__(path, group_names, saved_name)  # Use the path of csv file
+        """
+        :param path: the path to the csv file
+        """
+        super().__init__(path, group_names, saved_name)
         self.mean = pd.Series
 
-    # assume that all ques have their abbr. on the head of ques
-    # EXP: 'BC1 - What is your name?' => 'BC1'
     def read_clean_column_names(self, split_char, saved=False):
+        """
+        Read the scores from csv
+        Refine the name for each question, assume that all ques have their abbr. on the head of ques
+            'BC1 - What is your name?' => 'BC1'
+        Args:
+            split_char: the split char between abbr. and the question
+            saved: if true, saved the new csv with abbr.
+        Return scores as dataframe by revising self.df
+        """
         data = pd.read_csv(self.path)
         origin_column = data.columns.tolist()[:]
         for index, name in enumerate(origin_column):
@@ -30,15 +40,15 @@ class GoogleQuesProcess(DataProcess):
     # this plot assumes that the ques used N point likert scale
     def plot_bar(self, start, amount, mean_ques=True, subplot_titles=None, fig_size=None, draw_mean=True, p_correction=False):
         """
-        Draw a bar plot for questionnaire
+        Draw a bar plot for questionnaire scores
 
-        :param start: the first column index of data
+        :param start: the first column index of useful data
         :param amount: the number of ques in one group
-        :param fig_size: the output size of plot
-        :param subplot_titles: title for each subplot
-        :param mean_ques: if True, will combine all ques and calculate a mean value for the same questionnaire
-        :param draw_mean: Draw the mean text on the top of each bar
-        :param p_correction: use Bonferroni-Holm correction in post-hoc analyze
+        :param fig_size: should be tuple, the output size (in inch) of plot
+        :param subplot_titles: titles for each subplot
+        :param mean_ques: if true, will combine all ques and calculate a mean value for the same questionnaire
+        :param draw_mean: if true, draw the mean text on the top of each bar
+        :param p_correction: if true, use Bonferroni-Holm correction in post-hoc analyze
         """
         res_mean = [[] for _ in range(self.group_num)]  # the mean of each ques
         res_std = [[] for _ in range(self.group_num)]  # the std of each ques
@@ -96,8 +106,18 @@ class GoogleQuesProcess(DataProcess):
         ax.autoscale_view()
         self.fig.show()
 
-    # Return type_dict, where columns head name or full name as key, the full name as value
     def split_ques_type(self, start, amount, use_head=True):
+        """
+        Assume the questions for one experimental condition are continuous in colmun
+        Group these questions by their types using a dictionary
+            EXP: Q1 Q2 P1 P2 => P:[P1, P2], Q:[Q1, Q2]
+        Args:
+            start: the first column index of question
+            amount: int, the number of questions for each experimental condition
+            use_head: if true, using the type of question as key, like P:.. Q:.., else P1: P2: 
+        Returns:
+            type_dict: dictionary, where questions' type or each question as key, the full name as value
+        """
         types = self.df.columns.tolist()[start:start+amount]
         type_dict = {}
         for index, name in enumerate(types):

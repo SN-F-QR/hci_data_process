@@ -19,6 +19,11 @@ class Toolbox:
 
     @staticmethod
     def fried_man_test(data_group):
+        """
+        Conduct friedman significant test
+        :param data_group: the list contains data arranged by groups, 3 groups like [[], [], []]
+        :return p: the p value for all groups
+        """
         p = stats.friedmanchisquare(*data_group)
         print("Friedman: The null hypothesis cannot be rejected when p>0.05:", p)
         # p = stats.kruskal(data_group[0], data_group[1], data_group[2])
@@ -27,6 +32,13 @@ class Toolbox:
 
     @staticmethod
     def wilcoxon_post_hoc(data_group, bonferroni_holm=False):
+        """
+        Conduct wilcoxon_post_hoc significant test
+        Compare and calculate between each two group one time
+        :param data_group: the list contains data arranged by groups, 3 groups like [[], [], []]
+        :param bonferroni_holm: if true, will use bonferroni_holm correction
+        :return significant: tuple (i,j,p), where i/j are the two groups with significant differece of p value
+        """
         # can use `from itertools import combinations`
         significant = []
         print("Found significant difference, run wilcoxon post-hoc test")
