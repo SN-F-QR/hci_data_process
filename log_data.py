@@ -8,7 +8,7 @@ import warnings
 
 
 class DataProcess:
-    def __init__(self, path, group_names, saved_name='output.pdf', group_colors=None):
+    def __init__(self, path, group_names, saved_name="output.pdf", group_colors=None):
         """
         Initialize class
 
@@ -26,14 +26,22 @@ class DataProcess:
         self.plots = []  # record all plots in matplot for customization
         self.fig = plt.figure()
         if group_colors is None:
-            group_colors = ['#ADD8E6', '#FFDAB9', '#E6E6FA', "#F1A7B5", '#F5F5DC']
+            group_colors = ["#ADD8E6", "#FFDAB9", "#E6E6FA", "#F1A7B5", "#F5F5DC"]
         self.group_colors = group_colors
 
     # Assume that file name is like: expName_groupNAME_participantNo._xxx
     # def read_data(self, where_group=1, where_user=2):
 
-    def plot_sub_data(self, start=2, fig_design=(2, 3), fig_size=(6, 5), subplot_titles=None, flier_mark='o',
-                      same_yaxis=None, p_correction=False):
+    def plot_sub_data(
+        self,
+        start=2,
+        fig_design=(2, 3),
+        fig_size=(6, 5),
+        subplot_titles=None,
+        flier_mark="o",
+        same_yaxis=None,
+        p_correction=False,
+    ):
         """
         Use subplots to show box plot of the scores.
         Will update self.fig and self.plots
@@ -49,13 +57,19 @@ class DataProcess:
         assert self.df["group"].nunique() == self.group_num
         # plt_count = 0
         max_sig_count = 0  # To decide the max height of each subplot
-        fig, axes = plt.subplots(fig_design[0], fig_design[1], layout="constrained", figsize=fig_size)
+        fig, axes = plt.subplots(
+            fig_design[0], fig_design[1], layout="constrained", figsize=fig_size
+        )
         self.plots = axes
         self.fig = fig
         # fig, axes = plt.subplots(1, 6, layout="constrained", figsize=(12, 4)) # for two columns
         if fig_design[0] * fig_design[1] < self.df.shape[1] - start:
             end = fig_design[0] * fig_design[1] + start
-            warnings.warn('Variables after ' + self.df.columns[end-1] + ' will be ignored in subplots.')
+            warnings.warn(
+                "Variables after "
+                + self.df.columns[end - 1]
+                + " will be ignored in subplots."
+            )
         else:
             end = self.df.shape[1]
 
@@ -66,8 +80,13 @@ class DataProcess:
             # Subplot Setting
             # supported color
             # bp_colors = ["#5184B2", "#AAD4F8", "#F1A7B5", "#D55276", "#F2F5FA"]
-            bp = axes.flat[plt_index].boxplot(group_data, patch_artist=True, labels=self.group_names,
-                                              showfliers=True, showmeans=True)
+            bp = axes.flat[plt_index].boxplot(
+                group_data,
+                patch_artist=True,
+                labels=self.group_names,
+                showfliers=True,
+                showmeans=True,
+            )
 
             for patch, color in zip(bp["boxes"], self.group_colors):
                 patch.set_facecolor(color)
@@ -85,19 +104,30 @@ class DataProcess:
                 axes.flat[plt_index].set_title(subplot_titles[plt_index])
 
             # Draw significant lines if any
-            sig_group = self.significance_test(self.df.columns[i], group_data, p_correction)
+            sig_group = self.significance_test(
+                self.df.columns[i], group_data, p_correction
+            )
             if len(sig_group) > 0:
                 max_sig_count = max(max_sig_count, len(sig_group))
                 height_add = 0
                 height_min, height_basic = axes.flat[plt_index].get_ylim()
                 height_diff = (height_basic - height_min) / 6
-                axes.flat[plt_index].set_ylim(height_min, height_basic + len(sig_group) * height_diff)
+                axes.flat[plt_index].set_ylim(
+                    height_min, height_basic + len(sig_group) * height_diff
+                )
                 # axes.flat[plt_index].set_yticks(np.arange(0, 101, 20))
                 for res in sig_group:
                     # Get x_axis positions for start and end
                     x_s = axes.flat[plt_index].get_xticks()[res[0]]
                     x_e = axes.flat[plt_index].get_xticks()[res[1]]
-                    self.add_significance(x_s, x_e, height_basic + height_add, res[2], axes.flat[plt_index], height_diff / 4)
+                    self.add_significance(
+                        x_s,
+                        x_e,
+                        height_basic + height_add,
+                        res[2],
+                        axes.flat[plt_index],
+                        height_diff / 4,
+                    )
                     height_add += height_diff
 
         # Adjust height for all plot to maintain same y-axis
@@ -121,7 +151,7 @@ class DataProcess:
         self.fig.show()
 
     def save_fig(self):
-        self.fig.savefig(self.saved_name, dpi=300, bbox_inches='tight')
+        self.fig.savefig(self.saved_name, dpi=300, bbox_inches="tight")
 
     def extract_by_group(self, column_index):
         """
@@ -141,7 +171,14 @@ class DataProcess:
     def apply_by_group(self, apply_value, apply_group, column_index):
         group_judge = self.df.loc[:, "group"]
         self.df.iloc[(group_judge == apply_group).values, column_index] = apply_value
-        print('All', self.df.columns[column_index], 'in group', apply_group, 'set to', apply_value)
+        print(
+            "All",
+            self.df.columns[column_index],
+            "in group",
+            apply_group,
+            "set to",
+            apply_value,
+        )
 
     # Re-write this if other analyze method is expected
     def significance_test(self, name, data, correction=False):
@@ -151,7 +188,7 @@ class DataProcess:
         :param name: the name of tested type of objective data in json
         :param data: the list contains objective data arranged by groups, 3 groups like [[], [], []]
         :param correction: same with p_correction in plot_sub_data
-        :return sig_group: tuple (i,j,p), where i/j are the two groups with significant differece of p value
+        :return sig_group: tuple (i,j,p), where i/j are the two groups with significant difference of p value
         """
         print("-------" + name + " result:")
         p_value = Toolbox.fried_man_test(data)[1]
@@ -190,9 +227,11 @@ class DataProcess:
 
 
 class TLXProcess(DataProcess):
-    def __init__(self, path, group_names, saved_name='nasa_tlx_output.pdf', raw_nasa_only=False):
+    def __init__(
+        self, path, group_names, saved_name="nasa_tlx_output.pdf", raw_nasa_only=False
+    ):
         """
-        :param raw_nasa_only: if true, will only load files of raw nasa-tlx 
+        :param raw_nasa_only: if true, will only load files of raw nasa-tlx
         """
         super().__init__(path, group_names, saved_name)
         self.file_names = Toolbox.walk_dir(self.path)  # record all data files
@@ -221,17 +260,19 @@ class TLXProcess(DataProcess):
             assert weighted
 
         # read scale result
-        self.rs_data = self.read_nasa_raw('rs')
+        self.rs_data = self.read_nasa_raw("rs")
         self.df = self.rs_data
         # get raw result
         print("---NASA TLX raw result---")
         # get weighted result
         if weighted and not self.raw_nasa:
             # read pair result and get weight
-            pw_frame = self.read_nasa_raw('pw')
+            pw_frame = self.read_nasa_raw("pw")
             print("---NASA TLX weighted result---")
             self.pw_data = self.rs_data[:]  # avoid ref
-            self.pw_data.loc[:, "mental":] = self.rs_data.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
+            self.pw_data.loc[:, "mental":] = (
+                self.rs_data.loc[:, "mental":] * pw_frame.loc[:, "mental":] / 15
+            )
             self.df = self.pw_data
 
         # weighted_frame.loc[:, "sum"] = weighted_frame.iloc[:, 2]
@@ -245,27 +286,31 @@ class TLXProcess(DataProcess):
         :param raw_type: string, must be 'pw' to load pairwise score or 'rs' to load raw score
         :return raw_frame: dataframe of scores including participants id / group / scores
         """
-        assert raw_type == 'pw' or raw_type == 'rs'
+        assert raw_type == "pw" or raw_type == "rs"
         # dict for dataframe
-        data_dict = {"id": [],
-                     "group": [],
-                     "Mental Demand": [],
-                     "Physical Demand": [],
-                     "Temporal Demand": [],
-                     "Performance": [],
-                     "Effort": [],
-                     "Frustration": []}
+        data_dict = {
+            "id": [],
+            "group": [],
+            "Mental Demand": [],
+            "Physical Demand": [],
+            "Temporal Demand": [],
+            "Performance": [],
+            "Effort": [],
+            "Frustration": [],
+        }
 
         for name in self.file_names:
             full_path = os.path.join(self.path, name)
-            with open(full_path, 'r') as csv_txt:
+            with open(full_path, "r") as csv_txt:
                 data_flag = False
-                weight = {"Mental Demand": 0,
-                          "Physical Demand": 0,
-                          "Temporal Demand": 0,
-                          "Performance": 0,
-                          "Effort": 0,
-                          "Frustration": 0}  # store weight for pw and score for raw
+                weight = {
+                    "Mental Demand": 0,
+                    "Physical Demand": 0,
+                    "Temporal Demand": 0,
+                    "Performance": 0,
+                    "Effort": 0,
+                    "Frustration": 0,
+                }  # store weight for pw and score for raw
                 for line in csv_txt:
                     words = line.split(",")
                     if words[0] == "SUBJECT ID:":
@@ -278,9 +323,9 @@ class TLXProcess(DataProcess):
                         data_flag = True
                         continue
                     if data_flag and len(words) > 1:
-                        if raw_type == 'pw':
+                        if raw_type == "pw":
                             weight[words[-1].replace("\n", "")] += 1
-                        elif raw_type == 'rs':
+                        elif raw_type == "rs":
                             weight[words[0]] = int(words[-1])
 
                 for key in weight.keys():
@@ -298,15 +343,15 @@ class TLXProcess(DataProcess):
         And provide significant tests
         :param start: the first column index of useful data
         """
-        self.df['average'] = self.df.iloc[:, start:start+6].mean(axis=1)
-        average_by_group = self.extract_by_group(self.df.columns.get_loc('average'))
-        self.significance_test('Overall TLX', average_by_group)
+        self.df["average"] = self.df.iloc[:, start : start + 6].mean(axis=1)
+        average_by_group = self.extract_by_group(self.df.columns.get_loc("average"))
+        self.significance_test("Overall TLX", average_by_group)
 
 
 # Handle Objective data in Unity Json
 # Assume that file name is like: expName_participantNo._groupNAME_xxx
 class UnityJsonProcess(DataProcess):
-    def __init__(self, path, group_names, saved_name='unity_json_output.pdf'):
+    def __init__(self, path, group_names, saved_name="unity_json_output.pdf"):
         super().__init__(path, group_names, saved_name)
         self.file_names = Toolbox.walk_dir(self.path)  # record all data files
 
@@ -317,14 +362,14 @@ class UnityJsonProcess(DataProcess):
         :param where_id: the position of participant ID in file name
         :param where_group: the position of experiment group in file name
         """
-        raw_dict = {'id': [], 'group': []}
+        raw_dict = {"id": [], "group": []}
         file_list = Toolbox.walk_dir(self.path)
         for file_name in file_list:
-            names = file_name.split('.')[0]
-            names = names.split('_')
-            raw_dict['id'].append(int(names[where_id]))
-            raw_dict['group'].append(int(names[where_group]))
-            with open(os.path.join(self.path, file_name), 'r') as file:
+            names = file_name.split(".")[0]
+            names = names.split("_")
+            raw_dict["id"].append(int(names[where_id]))
+            raw_dict["group"].append(int(names[where_group]))
+            with open(os.path.join(self.path, file_name), "r") as file:
                 data = json.load(file)
                 # Save the json data to dict
                 for key in data.keys():
@@ -346,4 +391,6 @@ class UnityJsonProcess(DataProcess):
                 sig_group = Toolbox.tukey_post_hoc(data)
             return sig_group
         else:
-            return super().significance_test(name, data, correction)  # You may want other significant test
+            return super().significance_test(
+                name, data, correction
+            )  # You may want other significant test
