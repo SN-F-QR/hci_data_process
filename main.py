@@ -2,8 +2,10 @@ import os
 import numpy as np
 import log_data as handler
 from google_ques import GoogleQuesProcess
+from dotenv import load_dotenv
 
 if __name__ == "__main__":
+    load_dotenv()
     group_names = ["A", "B", "C", "D"]  # Each Group Name
     plot_titles = [
         "time",
@@ -14,7 +16,7 @@ if __name__ == "__main__":
         "behavior5",
     ]  # Titles for each subplot
     path = os.path.expanduser(
-        "~/Developer/Exp_Result/VR RS/finished"
+        os.getenv("UNITY_DATA_PATH")
     )  # Path to folder including data files
     # Draw and Analyze Unity Json Data
     unity_handler = handler.UnityJsonProcess(path, group_names)
@@ -35,7 +37,7 @@ if __name__ == "__main__":
 
     # Draw and Analyze NASA TLX data
     m_path_NASA = os.path.expanduser(
-        "~/Developer/Exp_Result/VR RS/NASA_TLX"
+        os.getenv("NASA_TLX_PATH")
     )  # Path to folder including data files
     plot_titles = [
         "mental",
@@ -62,9 +64,7 @@ if __name__ == "__main__":
     validQuesStartFrom = 13
     onlyDrawMeanForQues = True
     group_names = ["A", "B", "C"]
-    path = os.path.expanduser(
-        "~/Developer/Exp_Result/VR RS/VR Rec Questionnaire.csv"
-    )  # Path to the csv
+    path = os.path.expanduser(os.getenv("GOOGLE_FORM_PATH"))  # Path to the csv
 
     google_handler = GoogleQuesProcess(path, group_names)
     google_handler.read_clean_column_names(" - ")
