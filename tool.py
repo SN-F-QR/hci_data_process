@@ -18,6 +18,16 @@ class Toolbox:
         return file_list
 
     @staticmethod
+    def get_files_endwith(path, end):
+        temp = os.walk(path, topdown=True)
+        target_files = []
+        for path, dirs, files in temp:
+            target_files.append(
+                (path, list(filter(lambda name: name.endswith(end), files)))
+            )
+        return target_files
+
+    @staticmethod
     def fried_man_test(data_group):
         """
         Conduct friedman significant test
