@@ -14,7 +14,7 @@ class InterviewDataProcess:
         for path, fileNames in path_files:
             for fileName in fileNames:
                 cleaned_text = self.clean_time_stamp(path, fileName)
-                if self.output_path != "":
+                if self.output_path and self.output_path != "":
                     handler(cleaned_text, self.output_path, fileName)
                 else:
                     handler(cleaned_text, path, fileName)
