@@ -83,6 +83,7 @@ class DataProcess:
             bp = axes.flat[plt_index].boxplot(
                 group_data,
                 patch_artist=True,
+                widths=0.25,
                 labels=self.group_names,
                 showfliers=True,
                 showmeans=True,
@@ -190,11 +191,12 @@ class DataProcess:
         :param correction: same with p_correction in plot_sub_data
         :return sig_group: tuple (i,j,p), where i/j are the two groups with significant difference of p value
         """
-        print("-------" + name + " result:")
-        p_value = Toolbox.fried_man_test(data)[1]
+        if len(data) > 2:
+            print("-------" + name + " result:")
+            p_value = Toolbox.fried_man_test(data)[1]
         sig_group = []
         # include borderline condition
-        if p_value < 0.06:
+        if len(data) == 2 or p_value < 0.06:
             sig_group = Toolbox.wilcoxon_post_hoc(data, bonferroni_holm=correction)
 
         return sig_group
@@ -239,20 +241,24 @@ class TLXProcess(DataProcess):
         self.pw_data = pd.DataFrame()
         self.raw_nasa = raw_nasa_only
 
-    def read_nasa(self):
+    def read_nasa(self, force_rs=False):
         """
         Read and load NASA-TLX files, basically judge Raw or Weighted automatically
         Only handle NASA_TLX with or without each-time pairwise
+        :param force_rs: if true, will treat files as raw nasa-tlx
         Return result in self.rs_data and self.pw_data
         """
         pw_file = []
         rs_file = []
-        for name in self.file_names:
-            names = name.split("_")
-            if names[4] == "PW":
-                pw_file.append(name)
-            elif names[4] == "RS":
-                rs_file.append(name)
+        if not force_rs:
+            for name in self.file_names:
+                names = name.split("_")
+                if names[4] == "PW":
+                    pw_file.append(name)
+                elif names[4] == "RS":
+                    rs_file.append(name)
+        else:
+            rs_file = self.file_names
 
         # judge is raw TLX or paired TLX
         weighted = len(pw_file) == len(rs_file)
