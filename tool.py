@@ -8,13 +8,24 @@ from statsmodels.sandbox.stats.multicomp import multipletests
 
 class Toolbox:
     @staticmethod
-    def walk_dir(path):
-        # return all file names
+    def walk_dir(path, deep=False):
+        # return all file names, if deep, include files in subdir
+        def get_valid_files(files):
+            return [f for f in files if not f.startswith(".")]
+
         file_list = []
         temp = os.walk(path)
-        for path, dirs, files in temp:
-            file_list = files
-        file_list = [f for f in file_list if not f.startswith(".")]
+        for cur_path, dirs, files in temp:
+            if deep:
+                if cur_path == path:
+                    file_list.extend(get_valid_files(files))
+                    continue
+                directory = cur_path.split("/")[-1]
+                for file in files:
+                    if not file.startswith("."):
+                        file_list.append(os.path.join(directory, file))
+            else:
+                file_list = get_valid_files(files)
         return file_list
 
     @staticmethod
@@ -66,7 +77,7 @@ class Toolbox:
                     alternative="two-sided",
                     nan_policy="omit",
                 )
-                print("Group", i, "vs", j, ":", p)
+                print("Group", i, "vs", j, ": statistic =", p[0], "p =", p[1])
                 p_group.append(p[1])
                 if p.pvalue <= 0.05 or bonferroni_holm:
                     significant.append((i, j, p.pvalue))
