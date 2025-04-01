@@ -101,7 +101,7 @@ class Toolbox:
                 all_p_values.append(
                     Toolbox.normal_distribute(one_group, index=g_index, is_list=False)
                 )
-            if max(all_p_values) < 0.05:
+            if min(all_p_values) < 0.05:
                 return False
             else:
                 return True
@@ -116,6 +116,25 @@ class Toolbox:
                 stat,
             )
             return p
+
+    @staticmethod
+    def auto_pair_significance_test(data_group):
+        """
+        :param data_group: the list contains data arranged by groups like [[], []]
+        :reutrn: p value
+        """
+        normal_distributed = Toolbox.normal_distribute(data_group, is_list=True)
+
+        if normal_distributed:
+            result = stats.ttest_rel(data_group[0], data_group[1])
+            print("Normal Distributed, use paired T-test")
+            print("T-test result:", result)
+        else:
+            result = stats.wilcoxon(data_group[0], data_group[1])
+            print("Not Normal Distributed, use Wilcoxon test")
+            print(f"Wilcoxon result: statistic = ${result[0]}, p = ${result[1],}")
+
+        return result[1]
 
     @staticmethod
     def one_anova(data_group):

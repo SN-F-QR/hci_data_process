@@ -191,13 +191,18 @@ class DataProcess:
         :param correction: same with p_correction in plot_sub_data
         :return sig_group: tuple (i,j,p), where i/j are the two groups with significant difference of p value
         """
+        sig_group = []
+
         if len(data) > 2:
             print("-------" + name + " result:")
             p_value = Toolbox.fried_man_test(data)[1]
-        sig_group = []
-        # include borderline condition
-        if len(data) == 2 or p_value < 0.06:
-            sig_group = Toolbox.wilcoxon_post_hoc(data, bonferroni_holm=correction)
+            if p_value < 0.06:
+                sig_group = Toolbox.wilcoxon_post_hoc(data, bonferroni_holm=correction)
+        elif len(data) == 2:
+            print("-------" + name + " result:")
+            p_value = Toolbox.auto_pair_significance_test(data)
+            if p_value < 0.05:
+                sig_group = [(0, 1, p_value)]
 
         return sig_group
 
@@ -230,12 +235,17 @@ class DataProcess:
 
 class TLXProcess(DataProcess):
     def __init__(
-        self, path, group_names, saved_name="nasa_tlx_output.pdf", raw_nasa_only=False
+        self,
+        path,
+        group_names,
+        saved_name="nasa_tlx_output.pdf",
+        group_colors=None,
+        raw_nasa_only=False,
     ):
         """
         :param raw_nasa_only: if true, will only load files of raw nasa-tlx
         """
-        super().__init__(path, group_names, saved_name)
+        super().__init__(path, group_names, saved_name, group_colors=group_colors)
         self.file_names = Toolbox.walk_dir(self.path)  # record all data files
         self.rs_data = pd.DataFrame()
         self.pw_data = pd.DataFrame()
