@@ -132,9 +132,25 @@ class Toolbox:
         else:
             result = stats.wilcoxon(data_group[0], data_group[1])
             print("Not Normal Distributed, use Wilcoxon test")
-            print(f"Wilcoxon result: statistic = ${result[0]}, p = ${result[1],}")
+            print(f"Wilcoxon result: statistic = {result[0]}, p = {result[1]}")
 
         return result[1]
+
+    @staticmethod
+    def auto_multiple_significance_test(data_group):
+        sig_group = []
+
+        if Toolbox.normal_distribute(data_group):
+            print("Normal Distributed, use One-way ANOVA test")
+            p_value = Toolbox.one_anova(data_group)[1]
+            if p_value < 0.06:
+                sig_group = Toolbox.tukey_post_hoc(data_group)
+        else:
+            print("Not Normal Distributed, use Friedman test")
+            p_value = Toolbox.fried_man_test(data_group)[1]
+            if p_value < 0.06:
+                sig_group = Toolbox.wilcoxon_post_hoc(data_group, bonferroni_holm=False)
+        return sig_group
 
     @staticmethod
     def one_anova(data_group):

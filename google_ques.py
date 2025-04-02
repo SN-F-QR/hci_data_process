@@ -15,6 +15,7 @@ class GoogleQuesProcess(DataProcess):
         """
         super().__init__(path, group_names, saved_name)
         self.mean = pd.Series
+        self.df = pd.DataFrame
 
     def read_clean_column_names(self, split_char, saved=False):
         """
@@ -30,7 +31,7 @@ class GoogleQuesProcess(DataProcess):
         origin_column = data.columns.tolist()[:]
         for index, name in enumerate(origin_column):
             names = name.split(split_char)
-            origin_column[index] = names[0]
+            origin_column[index] = names[0].strip()
         data.columns = origin_column
         self.df = data
 
@@ -130,8 +131,17 @@ class GoogleQuesProcess(DataProcess):
             height_add = 0
             if len(sig_group) > 0:
                 for res in sig_group:
-                    x_s = ax.get_xticks()[index] + (res[0] - 1) * width
-                    x_e = ax.get_xticks()[index] + (res[1] - 1) * width
+                    x_s = (
+                        ax.get_xticks()[index]
+                        + (res[0] - 1) * width
+                        + width / 2 * ((self.group_num - 1) % 2)
+                    )
+
+                    x_e = (
+                        ax.get_xticks()[index]
+                        + (res[1] - 1) * width
+                        + width / 2 * ((self.group_num - 1) % 2)
+                    )
                     self.add_significance(
                         x_s, x_e, height_basic + height_add, res[2], ax, height_diff / 4
                     )

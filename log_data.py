@@ -195,9 +195,7 @@ class DataProcess:
 
         if len(data) > 2:
             print("-------" + name + " result:")
-            p_value = Toolbox.fried_man_test(data)[1]
-            if p_value < 0.06:
-                sig_group = Toolbox.wilcoxon_post_hoc(data, bonferroni_holm=correction)
+            sig_group = Toolbox.auto_multiple_significance_test(data)
         elif len(data) == 2:
             print("-------" + name + " result:")
             p_value = Toolbox.auto_pair_significance_test(data)
