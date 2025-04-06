@@ -9,11 +9,13 @@ from log_data import DataProcess
 
 # The current class mainly support within-subject study using one ques
 class GoogleQuesProcess(DataProcess):
-    def __init__(self, path, group_names, saved_name="google_ques_output.pdf"):
+    def __init__(
+        self, path, group_names, group_colors=None, saved_name="google_ques_output.pdf"
+    ):
         """
         :param path: the path to the csv file
         """
-        super().__init__(path, group_names, saved_name)
+        super().__init__(path, group_names, saved_name, group_colors)
         self.mean = pd.Series
         self.df = pd.DataFrame
 
@@ -114,7 +116,9 @@ class GoogleQuesProcess(DataProcess):
 
         if subplot_titles is None:
             subplot_titles = ques_index.keys()
-        ax.set_xticks(ind + width / 2 * (self.group_num - 1), labels=subplot_titles)
+        ax.set_xticks(
+            ind + width / 2 * (self.group_num - 1), labels=subplot_titles, fontsize=8
+        )
 
         # Add significant signs
         height_min, height_basic = ax.get_ylim()
