@@ -91,8 +91,12 @@ class DataProcess:
 
             for patch, color in zip(bp["boxes"], self.group_colors):
                 patch.set_facecolor(color)
-                patch.set_linewidth(0.5)
+                patch.set_linewidth(0)
                 # patch.set_edgecolor('white')
+            for patch in bp["whiskers"]:
+                patch.set_color("gray")
+            for patch in bp["caps"]:
+                patch.set_color("gray")
             for flier in bp["fliers"]:
                 flier.set(marker=flier_mark)
             for mean in bp["means"]:
